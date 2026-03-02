@@ -1,0 +1,120 @@
+/// Extraction Result Flat: Denormalized table for fast querying and Excel export
+model ExtractionResultFlat {
+  id                          String    @id @default(uuid())
+  jobId                       String    @unique @map("job_id")
+  
+  // ===== ESSENTIAL METADATA FOR EXCEL EXPORT =====
+  
+  // Image & Article Info
+  imageName                   String?   @map("image_name") @db.VarChar(255)
+  imageUrl                    String?   @map("image_url") @db.Text
+  articleNumber               String?   @map("article_number") @db.VarChar(100)
+  
+  // Category Hierarchy
+  categoryCode                String?   @map("category_code") @db.VarChar(100)
+  categoryName                String?   @map("category_name") @db.VarChar(200)
+  departmentName              String?   @map("department_name") @db.VarChar(200)
+  subDepartmentName           String?   @map("sub_department_name") @db.VarChar(200)
+  
+  // Extraction Metadata
+  extractionStatus            String?   @map("extraction_status") @db.VarChar(50)
+  aiModel                     String?   @map("ai_model") @db.VarChar(100)
+  avgConfidence               Decimal?  @map("avg_confidence") @db.Decimal(5, 2)
+  processingTimeMs            Int?      @map("processing_time_ms")
+  totalAttributes             Int?      @map("total_attributes")
+  extractedCount              Int?      @map("extracted_count")
+  
+  // Token Usage & Cost Tracking
+  inputTokens                 Int?      @map("input_tokens")
+  outputTokens                Int?      @map("output_tokens")
+  totalTokens                 Int?      @map("total_tokens")
+  apiCost                     Decimal?  @map("api_cost") @db.Decimal(10, 6)
+  
+  // User Info
+  userId                      Int?      @map("user_id")
+  userName                    String?   @map("user_name") @db.VarChar(200)
+  
+  // Timestamps (Date only, no time)
+  extractionDate              DateTime? @map("extraction_date") @db.Date
+  createdAt                   DateTime  @default(now()) @map("created_at") @db.Date
+  updatedAt                   DateTime  @updatedAt @map("updated_at") @db.Date
+  
+  // ===== EXTRACTED ATTRIBUTES (41) =====
+  
+  // Basic Info
+  majorCategory               String?   @map("major_category") @db.VarChar(200)
+  vendorName                  String?   @map("vendor_name") @db.VarChar(200)
+  designNumber                String?   @map("design_number") @db.VarChar(100)
+  pptNumber                   String?   @map("ppt_number") @db.VarChar(100)
+  rate                        Decimal?  @db.Decimal(10, 2)
+  size                        String?   @db.VarChar(50)
+  
+  // Fabric Details
+  yarn1                       String?   @map("yarn_1") @db.VarChar(100)
+  yarn2                       String?   @map("yarn_2") @db.VarChar(100)
+  fabricMainMvgr              String?   @map("fabric_main_mvgr") @db.VarChar(100)
+  weave                       String?   @db.VarChar(100)
+  composition                 String?   @db.VarChar(200)
+  finish                      String?   @db.VarChar(100)
+  gsm                         String?   @db.VarChar(50)
+  shade                       String?   @db.VarChar(100)
+  lycra                       String?   @db.VarChar(50)
+  
+  // Garment Structure
+  neck                        String?   @db.VarChar(100)
+  neckDetails                 String?   @map("neck_details") @db.VarChar(200)
+  collar                      String?   @db.VarChar(100)
+  placket                     String?   @db.VarChar(100)
+  sleeve                      String?   @db.VarChar(100)
+  bottomFold                  String?   @map("bottom_fold") @db.VarChar(100)
+  frontOpenStyle              String?   @map("front_open_style") @db.VarChar(100)
+  pocketType                  String?   @map("pocket_type") @db.VarChar(100)
+  
+  // Fit & Style
+  fit                         String?   @db.VarChar(100)
+  pattern                     String?   @db.VarChar(100)
+  length                      String?   @db.VarChar(100)
+  colour                      String?   @db.VarChar(100)
+  
+  // Closures & Details
+  drawcord                    String?   @db.VarChar(100)
+  button                      String?   @db.VarChar(100)
+  zipper                      String?   @db.VarChar(100)
+  zipColour                   String?   @map("zip_colour") @db.VarChar(100)
+  
+  // Decorations
+  printType                   String?   @map("print_type") @db.VarChar(100)
+  printStyle                  String?   @map("print_style") @db.VarChar(100)
+  printPlacement              String?   @map("print_placement") @db.VarChar(100)
+  patches                     String?   @db.VarChar(100)
+  patchesType                 String?   @map("patches_type") @db.VarChar(100)
+  embroidery                  String?   @db.VarChar(100)
+  embroideryType              String?   @map("embroidery_type") @db.VarChar(100)
+  wash                        String?   @db.VarChar(100)
+  
+  // Accessories
+  fatherBelt                  String?   @map("father_belt") @db.VarChar(100)
+  childBelt                   String?   @map("child_belt") @db.VarChar(100)
+  
+  // ===== MISSING ATTRIBUTES (3) =====
+  division                    String?   @db.VarChar(100)
+  referenceArticleNumber      String?   @map("reference_article_number") @db.VarChar(100)
+  referenceArticleDescription String?   @map("reference_article_description") @db.Text
+  
+  // Relations
+  job                         ExtractionJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  
+  @@map("extraction_results_flat")
+  
+  // Indexes for fast querying
+  @@index([jobId])
+  @@index([imageName])
+  @@index([articleNumber])
+  @@index([majorCategory])
+  @@index([categoryCode])
+  @@index([departmentName])
+  @@index([extractionStatus])
+  @@index([userId])
+  @@index([extractionDate])
+  @@index([createdAt])
+}

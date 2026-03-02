@@ -1,0 +1,354 @@
+[
+  {
+    "userLabel": "Division",
+    "dbId": null,
+    "dbKey": null,
+    "dbLabel": null,
+    "dbType": null,
+    "status": "NOT_FOUND"
+  },
+  {
+    "userLabel": "Major Category",
+    "dbId": 142,
+    "dbKey": "major_category",
+    "dbLabel": "Major Category",
+    "dbType": "SELECT",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "Reference Article Number",
+    "dbId": null,
+    "dbKey": null,
+    "dbLabel": null,
+    "dbType": null,
+    "status": "NOT_FOUND"
+  },
+  {
+    "userLabel": "Reference Article Description",
+    "dbId": null,
+    "dbKey": null,
+    "dbLabel": null,
+    "dbType": null,
+    "status": "NOT_FOUND"
+  },
+  {
+    "userLabel": "Vendor Name",
+    "dbId": 140,
+    "dbKey": "vendor_name",
+    "dbLabel": "Vendor Name",
+    "dbType": "TEXT",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "Design Number",
+    "dbId": 141,
+    "dbKey": "design_number",
+    "dbLabel": "Design Number",
+    "dbType": "TEXT",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "PPT Number",
+    "dbId": 137,
+    "dbKey": "ppt_number",
+    "dbLabel": "PPT Number",
+    "dbType": "TEXT",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "Rate/Price",
+    "dbId": 138,
+    "dbKey": "rate",
+    "dbLabel": "Rate/Price",
+    "dbType": "NUMBER",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "Size",
+    "dbId": 130,
+    "dbKey": "SIZE",
+    "dbLabel": "SIZE",
+    "dbType": "SELECT",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "Yarn 1",
+    "dbId": 90,
+    "dbKey": "YARN_01",
+    "dbLabel": "YARN-01",
+    "dbType": "SELECT",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "Yarn 2",
+    "dbId": 91,
+    "dbKey": "YARN_02",
+    "dbLabel": "YARN-02",
+    "dbType": "SELECT",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "Fabric Main MVGR",
+    "dbId": 92,
+    "dbKey": "FABRIC_MAIN_MVGR",
+    "dbLabel": "FABRIC MAIN MVGR",
+    "dbType": "SELECT",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "Weave",
+    "dbId": 93,
+    "dbKey": "WEAVE",
+    "dbLabel": "WEAVE",
+    "dbType": "SELECT",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "Composition",
+    "dbId": 95,
+    "dbKey": "COMPOSITION",
+    "dbLabel": "COMPOSITION",
+    "dbType": "SELECT",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "Finish",
+    "dbId": 96,
+    "dbKey": "FINISH",
+    "dbLabel": "FINISH",
+    "dbType": "SELECT",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "GSM",
+    "dbId": 98,
+    "dbKey": "GRAM_PER_SQUARE_METER",
+    "dbLabel": "GRAM PER SQUARE METER",
+    "dbType": "SELECT",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "Shade",
+    "dbId": 101,
+    "dbKey": "SHADE",
+    "dbLabel": "SHADE",
+    "dbType": "SELECT",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "Lycra/Non Lycra",
+    "dbId": 102,
+    "dbKey": "LYCRA_NON\nLYCRA",
+    "dbLabel": "LYCRA/NON\nLYCRA",
+    "dbType": "SELECT",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "Neck",
+    "dbId": 103,
+    "dbKey": "NECK",
+    "dbLabel": "NECK",
+    "dbType": "SELECT",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "Neck Details",
+    "dbId": 104,
+    "dbKey": "NECK_DETAIL",
+    "dbLabel": "NECK DETAIL",
+    "dbType": "SELECT",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "Collar",
+    "dbId": 105,
+    "dbKey": "COLLAR",
+    "dbLabel": "COLLAR",
+    "dbType": "SELECT",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "Placket",
+    "dbId": 107,
+    "dbKey": "PLACKET",
+    "dbLabel": "PLACKET",
+    "dbType": "SELECT",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "Sleeve",
+    "dbId": 110,
+    "dbKey": "SLEEVE",
+    "dbLabel": "SLEEVE",
+    "dbType": "SELECT",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "Bottom Fold",
+    "dbId": 111,
+    "dbKey": "BOTTOM_FOLD",
+    "dbLabel": "BOTTOM FOLD",
+    "dbType": "SELECT",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "Front Open Style",
+    "dbId": 112,
+    "dbKey": "FRONT_OPEN_STYLE",
+    "dbLabel": "FRONT OPEN STYLE",
+    "dbType": "SELECT",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "Pocket Type",
+    "dbId": 113,
+    "dbKey": "POCKET_TYPE",
+    "dbLabel": "POCKET TYPE",
+    "dbType": "SELECT",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "Fit",
+    "dbId": 114,
+    "dbKey": "FIT",
+    "dbLabel": "FIT",
+    "dbType": "SELECT",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "Pattern",
+    "dbId": 115,
+    "dbKey": "PATTERN",
+    "dbLabel": "PATTERN",
+    "dbType": "SELECT",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "Length",
+    "dbId": 116,
+    "dbKey": "LENGTH",
+    "dbLabel": "LENGTH",
+    "dbType": "SELECT",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "Drawcord",
+    "dbId": 117,
+    "dbKey": "DRAWCORD",
+    "dbLabel": "DRAWCORD ",
+    "dbType": "SELECT",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "Button",
+    "dbId": 118,
+    "dbKey": "BUTTON",
+    "dbLabel": "BUTTON",
+    "dbType": "SELECT",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "Zipper",
+    "dbId": 119,
+    "dbKey": "ZIPPER",
+    "dbLabel": "ZIPPER",
+    "dbType": "SELECT",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "Zip Colour",
+    "dbId": 120,
+    "dbKey": "ZIP_COLOUR",
+    "dbLabel": "ZIP COLOUR",
+    "dbType": "SELECT",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "Print Type",
+    "dbId": 121,
+    "dbKey": "PRINT_TYPE",
+    "dbLabel": "PRINT TYPE",
+    "dbType": "SELECT",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "Print Style",
+    "dbId": 123,
+    "dbKey": "PRINT_STYLE",
+    "dbLabel": "PRINT_STYLE",
+    "dbType": "SELECT",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "Print Placement",
+    "dbId": 122,
+    "dbKey": "PRINT_PLACEMENT",
+    "dbLabel": "PRINT_PLACEMENT",
+    "dbType": "SELECT",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "Patches",
+    "dbId": 124,
+    "dbKey": "PATCHES",
+    "dbLabel": "PATCHES",
+    "dbType": "SELECT",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "Patches Type",
+    "dbId": 125,
+    "dbKey": "PATCH_TYPE",
+    "dbLabel": "PATCH TYPE",
+    "dbType": "SELECT",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "Embroidery",
+    "dbId": 126,
+    "dbKey": "EMBROIDERY",
+    "dbLabel": "EMBROIDERY",
+    "dbType": "SELECT",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "Embroidery Type",
+    "dbId": 127,
+    "dbKey": "EMBROIDERY_TYPE",
+    "dbLabel": "EMBROIDERY_TYPE",
+    "dbType": "SELECT",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "Wash",
+    "dbId": 128,
+    "dbKey": "WASH",
+    "dbLabel": "WASH",
+    "dbType": "SELECT",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "Colour",
+    "dbId": 129,
+    "dbKey": "COLOR",
+    "dbLabel": "COLOR",
+    "dbType": "TEXT",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "Father Belt",
+    "dbId": 108,
+    "dbKey": "FATHER_BELT",
+    "dbLabel": "FATHER BELT",
+    "dbType": "SELECT",
+    "status": "FOUND"
+  },
+  {
+    "userLabel": "Child Belt",
+    "dbId": 109,
+    "dbKey": "CHILD_BELT_DETAIL",
+    "dbLabel": "CHILD BELT DETAIL",
+    "dbType": "SELECT",
+    "status": "FOUND"
+  }
+]
