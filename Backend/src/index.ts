@@ -29,6 +29,7 @@ import { cacheService } from './services/cacheService';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const isProduction = process.env.NODE_ENV === 'production';
 
 // Rate limiting middleware
 const limiter = rateLimit({
@@ -64,10 +65,11 @@ app.use('/api/', limiter);
 
 // CORS configuration
 const allowedOrigins = [
-  'http://localhost:5173',
-  'https://ai-fashion-extractor.vercel.app',
-  'http://192.168.151.46:5173',
-  process.env.FRONTEND_URL
+  ...(process.env.CORS_ORIGINS
+    ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim())
+    : []),
+  process.env.FRONTEND_URL,
+  'https://ai-fashion-extractor.vercel.app'
 ].filter(Boolean);
 
 app.use(cors({
@@ -75,8 +77,8 @@ app.use(cors({
     // Allow requests with no origin (mobile apps, Postman, etc.)
     if (!origin) return callback(null, true);
 
-    // Allow any local network IP (192.168.x.x)
-    if (origin.startsWith('http://192.168.') || origin.startsWith('http://localhost')) {
+    // Allow localhost/LAN origins only in development
+    if (!isProduction && (origin.startsWith('http://192.168.') || origin.startsWith('http://localhost'))) {
       return callback(null, true);
     }
 
@@ -208,12 +210,12 @@ if (!configCheck.configured) {
 const server = app.listen(PORT, () => {
   console.log(`Backend server running on port ${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔗 API available at: http://localhost:${PORT}/api`);
-  console.log(`🏥 Health check: http://localhost:${PORT}/api/health`);
+  console.log(`🔗 API available at: /api`);
+  console.log(`🏥 Health check: /api/health`);
   console.log(`🔐 Security: Authentication & authorization enabled`);
   console.log(`📊 Audit logging: ${process.env.ENABLE_AUDIT_LOGGING !== 'false' ? 'Enabled' : 'Disabled'}`);
 
-  if (process.env.NODE_ENV === 'development') {
+  if (!isProduction) {
     console.log(`🌐 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
   }
 

@@ -2,6 +2,9 @@ export const APP_CONFIG = {
   name: import.meta.env.VITE_APP_NAME || 'AI Fashion Attribute Extractor',
   version: import.meta.env.VITE_APP_VERSION || '1.0.0',
   
+  // Environment
+  isDevelopment: import.meta.env.DEV,
+  
   // File upload limits
   maxFileSize: parseInt(import.meta.env.VITE_MAX_FILE_SIZE) || 10 * 1024 * 1024, // 10MB
   maxConcurrentExtractions: parseInt(import.meta.env.VITE_MAX_CONCURRENT_EXTRACTIONS) || 3,
@@ -11,15 +14,16 @@ export const APP_CONFIG = {
   
   // Backend API Configuration
   api: {
-    baseURL: import.meta.env.VITE_API_BASE_URL || (() => {
-      const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-      return `http://${hostname}:5000/api`;
-    })(),
+    baseURL: import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV
+      ? (() => {
+          const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+          return `http://${hostname}:5000/api`;
+        })()
+      : '/api'),
   },
   
   // Development settings
-  isDevelopment: import.meta.env.DEV,
-  enableLogging: import.meta.env.VITE_ENABLE_LOGGING !== 'false',
+  enableLogging: import.meta.env.VITE_ENABLE_LOGGING === 'true' || import.meta.env.DEV,
   
   // Database settings
   indexedDB: {
