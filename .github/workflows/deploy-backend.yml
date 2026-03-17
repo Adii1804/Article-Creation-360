@@ -1,0 +1,71 @@
+name: Deploy Backend to Azure
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+    paths:
+      - 'Backend/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Move app to dab-plan P2v3
+        run: |
+          SUB="${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+          az webapp update --name v2-article-backend --resource-group dab-rg --subscription "$SUB" \
+            --set serverFarmId="/subscriptions/$SUB/resourceGroups/dab-rg/providers/Microsoft.Web/serverfarms/dab-plan"
+
+      - name: Set env vars and startup
+        run: |
+          SUB="${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+          az webapp config set --name v2-article-backend --resource-group dab-rg --subscription "$SUB" \
+            --startup-file "node --max-old-space-size=512 dist/index.js" --linux-fx-version "NODE|22-lts"
+          az webapp config appsettings set --name v2-article-backend --resource-group dab-rg --subscription "$SUB" --settings \
+            NODE_ENV=production PORT=8080 ENABLE_REDIS=false \
+            FRONTEND_URL=https://articles.v2retail.net \
+            "JWT_SECRET=${{ secrets.JWT_SECRET }}" \
+            "DATABASE_URL=${{ secrets.DATABASE_URL }}" \
+            "DIRECT_URL=${{ secrets.DIRECT_URL }}" \
+            "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}"
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build backend
+        working-directory: Backend
+        run: |
+          npm install --production=false
+          npx prisma generate
+          npx tsc --skipLibCheck
+          npm run postbuild
+          npm prune --production
+
+      - name: Deploy zip to Azure
+        working-directory: Backend
+        run: |
+          zip -r /tmp/v2-backend.zip dist/ node_modules/ prisma/schema.prisma package.json
+          echo "Zip size: $(du -sh /tmp/v2-backend.zip)"
+          az webapp deploy --name v2-article-backend --resource-group dab-rg \
+            --src-path /tmp/v2-backend.zip --type zip --async true \
+            --subscription "${{ secrets.AZURE_SUBSCRIPTION_ID }}" || true
+
+      - name: Restart and health check
+        run: |
+          SUB="${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+          az webapp restart --name v2-article-backend --resource-group dab-rg --subscription "$SUB"
+          sleep 60
+          HTTP=$(curl -s -o /dev/null -w "%{http_code}" https://v2-article-backend.azurewebsites.net/api/health || echo 000)
+          echo "Health check: $HTTP"
+          [ "$HTTP" = "200" ] && echo "BACKEND LIVE" || echo "Returned HTTP $HTTP"
