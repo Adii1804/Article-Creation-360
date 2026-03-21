@@ -6,14 +6,14 @@ export const parseNumericValue = (value: unknown): number | null => {
     if (typeof value === 'number') return Number.isFinite(value) ? value : null;
 
     const cleaned = String(value)
-        .replace(/[₹$€£¥]/g, '')
-        .replace(/\s+/g, '')
+        .replace(/[₹$€£¥,]/g, '')
+        .replace(/\s+/g, ' ')
         .replace(/\/-$/, '')
         .replace(/\/$/, '')
         .replace(/-$/, '')
         .trim();
 
-    const match = cleaned.match(/^-?\d+(\.\d+)?/);
+    const match = cleaned.match(/-?\d+(\.\d+)?/);
     if (!match) return null;
 
     const parsed = parseFloat(match[0]);

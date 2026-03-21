@@ -233,6 +233,7 @@ export const ApproverTable: React.FC<ApproverTableProps> = ({
             title: 'Image',
             key: 'image',
             width: 80,
+            fixed: 'left' as const,
             render: (_: unknown, row: ApproverItem) => (
                 <div style={{ width: 64, height: 64, borderRadius: 8, overflow: 'hidden', background: '#f5f5f5' }}>
                     {row.imageUrl ? (
@@ -259,6 +260,7 @@ export const ApproverTable: React.FC<ApproverTableProps> = ({
             title: 'Ref Details (Editable)',
             key: 'details',
             width: 200,
+            fixed: 'left' as const,
             render: (_: unknown, row: ApproverItem) => (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                     <Text strong>{row.articleNumber || row.designNumber || 'No Article #'}</Text>
@@ -277,6 +279,7 @@ export const ApproverTable: React.FC<ApproverTableProps> = ({
             key: 'division',
             width: 120,
             editable: true,
+            fixed: 'left' as const,
         },
         {
             title: 'Sub-Division',
@@ -284,6 +287,7 @@ export const ApproverTable: React.FC<ApproverTableProps> = ({
             key: 'subDivision',
             width: 120,
             editable: true,
+            fixed: 'left' as const,
         },
         {
             title: 'Major Category',
@@ -291,6 +295,7 @@ export const ApproverTable: React.FC<ApproverTableProps> = ({
             key: 'majorCategory',
             width: 150,
             editable: true,
+            fixed: 'left' as const,
         },
         {
             title: 'Status',
@@ -548,13 +553,14 @@ export const ApproverTable: React.FC<ApproverTableProps> = ({
             dataSource={items}
             loading={loading}
             pagination={{
-                pageSize: 10,
+                pageSize: 5,
                 showSizeChanger: true,
-                pageSizeOptions: ['10', '50', '100', '200'],
+                pageSizeOptions: ['5', '10', '50', '100', '200'],
                 showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
                 position: ['bottomRight'],
             }}
-            scroll={{ x: 'max-content' }}
+            scroll={{ x: 'max-content', y: 'calc(100vh - 280px)' }}
+            sticky
             rowSelection={{
                 selectedRowKeys,
                 onChange: onSelectionChange,

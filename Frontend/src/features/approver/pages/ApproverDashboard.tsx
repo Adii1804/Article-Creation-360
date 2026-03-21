@@ -57,13 +57,13 @@ const parseNumericValue = (value: unknown): number | null => {
     if (typeof value === 'number') return Number.isFinite(value) ? value : null;
 
     const cleaned = String(value)
-        .replace(/[₹$€£¥]/g, '')
-        .replace(/\s+/g, '')
+        .replace(/[₹$€£¥,]/g, '')
+        .replace(/\s+/g, ' ')
         .replace(/\/-$/, '')
         .replace(/\/$/, '')
         .replace(/-$/, '')
         .trim();
-    const match = cleaned.match(/^-?\d+(\.\d+)?/);
+    const match = cleaned.match(/-?\d+(\.\d+)?/);
     if (!match) return null;
     const parsed = parseFloat(match[0]);
     return Number.isNaN(parsed) ? null : parsed;
@@ -623,6 +623,7 @@ export default function ApproverDashboard() {
                         // Optimistic update
                         const newData = [...items];
                         const index = newData.findIndex((item) => item.id === row.id);
+                        let updatePayload: Record<string, unknown> = {};
                         if (index > -1) {
                             const item = newData[index];
 
@@ -636,6 +637,15 @@ export default function ApproverDashboard() {
                                 ...row,
                             });
                             setItems(newData);
+
+                            updatePayload = Object.fromEntries(
+                                Object.entries(row).filter(([key, value]) => (item as any)[key] !== value)
+                            );
+                        }
+
+                        if (Object.keys(updatePayload).length === 0) {
+                            message.info('No changes to save');
+                            return;
                         }
 
                         // API Update
@@ -647,7 +657,7 @@ export default function ApproverDashboard() {
                                     'Content-Type': 'application/json',
                                     'Authorization': `Bearer ${token}`
                                 },
-                                body: JSON.stringify(row)
+                                body: JSON.stringify(updatePayload)
                             });
                             if (!response.ok) throw new Error('Update failed');
                             message.success('Updated');

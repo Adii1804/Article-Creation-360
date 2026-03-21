@@ -414,12 +414,6 @@ export class ApproverController {
                 }
             }
 
-            // If rate/cost is provided, always derive MRP using:
-            // rate + 33%, rounded UP to nearest multiple of 25.
-            if (data.rate !== undefined) {
-                data.mrp = calculateMrpFromRate(data.rate);
-            }
-
             // Strict rule:
             // mcCode should exist only when exact majorCategory mapping exists.
             // Otherwise keep mcCode blank.
@@ -436,6 +430,7 @@ export class ApproverController {
                 select: {
                     id: true,
                     approvalStatus: true,
+                    rate: true,
                     division: true,
                     subDivision: true,
                     majorCategory: true,
@@ -496,10 +491,36 @@ export class ApproverController {
                 }
             }
 
+            const toComparableNumber = (value: unknown): number | null => {
+                const parsed = parseNumericValue(value);
+                return parsed === null ? null : Number(parsed.toFixed(2));
+            };
+
+            const incomingRate = data.rate !== undefined ? toComparableNumber(data.rate) : null;
+            const existingRate = toComparableNumber(existingItem.rate);
+            const rateActuallyChanged = data.rate !== undefined && incomingRate !== existingRate;
+
+            // Only derive MRP from rate when rate actually changes.
+            // This prevents failed saves when the frontend sends full rows with unchanged values.
+            if (rateActuallyChanged) {
+                data.mrp = calculateMrpFromRate(incomingRate);
+            } else if (
+                data.rate === undefined &&
+                data.mrp === undefined &&
+                (existingItem.mrp === null || existingItem.mrp === undefined) &&
+                existingRate !== null
+            ) {
+                // Backfill missing MRP from existing rate when any update is made.
+                data.mrp = calculateMrpFromRate(existingRate);
+            }
+
             const finalMajorCategory = (data.majorCategory !== undefined ? data.majorCategory : existingItem.majorCategory) as string | null;
             const finalMrp = data.mrp !== undefined ? data.mrp : existingItem.mrp;
 
-            if (finalMajorCategory && finalMrp !== null && finalMrp !== undefined) {
+            // Only enforce segment range check when MRP or majorCategory actually changed value
+            const mrpActuallyChanged = data.mrp !== undefined && toComparableNumber(data.mrp) !== toComparableNumber(existingItem.mrp);
+            const categoryActuallyChanged = data.majorCategory !== undefined && data.majorCategory !== existingItem.majorCategory;
+            if ((mrpActuallyChanged || categoryActuallyChanged) && finalMajorCategory && finalMrp !== null && finalMrp !== undefined) {
                 const segment = getSegmentByCategoryAndMrp(finalMajorCategory, finalMrp);
                 if (!segment) {
                     return res.status(400).json({
@@ -508,6 +529,10 @@ export class ApproverController {
                 }
 
                 data.segment = segment;
+            } else if (finalMajorCategory && finalMrp !== null && finalMrp !== undefined) {
+                // Always try to set segment silently (no error if not found)
+                const segment = getSegmentByCategoryAndMrp(finalMajorCategory, finalMrp);
+                if (segment) data.segment = segment;
             }
 
             // Year always follows current date year (e.g. 02-Mar-2026 => 2026)
