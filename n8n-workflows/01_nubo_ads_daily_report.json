@@ -1,0 +1,82 @@
+{
+  "name": "Nubo Ads Daily Report",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "cronExpression", "expression": "30 3 * * *" }] }
+      },
+      "id": "schedule-trigger",
+      "name": "Daily 9AM IST",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://nubo-ads-bot.akash-bab.workers.dev/insights",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "date_preset", "value": "yesterday" },
+            { "name": "level", "value": "campaign" },
+            { "name": "fields", "value": "campaign_name,spend,impressions,clicks,reach,cpc,cpm" }
+          ]
+        }
+      },
+      "id": "meta-ads",
+      "name": "Meta Ads Insights",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [480, 200]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://googleads.googleapis.com/v17/customers/1127675609/googleAds:searchStream",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "developer-token", "value": "={{ $credentials.developerToken }}" },
+            { "name": "login-customer-id", "value": "1127675609" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={ \"query\": \"SELECT campaign.id, campaign.name, metrics.cost_micros, metrics.impressions, metrics.clicks FROM campaign WHERE segments.date = '{{ $today.minus(1,'day').format('YYYY-MM-DD') }}'\" }"
+      },
+      "id": "google-ads",
+      "name": "Google Ads Metrics",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [480, 420]
+    },
+    {
+      "parameters": {
+        "jsCode": "const metaData = $('Meta Ads Insights').first().json;\nconst metaCampaigns = metaData.data || [];\nconst gadsRows = $('Google Ads Metrics').first().json?.results || [];\n\nconst today = new Date().toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'numeric'});\n\nconst metaSpend = metaCampaigns.reduce((s,c) => s + parseFloat(c.spend||0), 0);\nconst metaImpr = metaCampaigns.reduce((s,c) => s + parseInt(c.impressions||0), 0);\nconst metaClicks = metaCampaigns.reduce((s,c) => s + parseInt(c.clicks||0), 0);\n\nconst gadsSpend = gadsRows.reduce((s,r) => s + (parseInt(r.metrics?.cost_micros||0)/1e6), 0);\nconst gadsImpr = gadsRows.reduce((s,r) => s + parseInt(r.metrics?.impressions||0), 0);\n\nconst metaLines = metaCampaigns.length > 0\n  ? metaCampaigns.map(c =>\n      `• ${c.campaign_name}: ₹${parseFloat(c.spend).toFixed(0)} | ${parseInt(c.impressions).toLocaleString()} impr | ${c.clicks} clicks`\n    ).join('\\n')\n  : '• No active campaigns';\n\nconst gadsLines = gadsRows.length > 0\n  ? gadsRows.map(r =>\n      `• ${r.campaign?.name}: ₹${(parseInt(r.metrics?.cost_micros||0)/1e6).toFixed(0)} | ${parseInt(r.metrics?.impressions||0).toLocaleString()} impr`\n    ).join('\\n')\n  : '• No data';\n\nconst total = metaSpend + gadsSpend;\nconst msg = `*Nubo Ads Report — ${today}*\n\n*Meta Ads*\n${metaLines}\nSpend: ₹${metaSpend.toFixed(0)} | Impressions: ${metaImpr.toLocaleString()} | Clicks: ${metaClicks}\n\n*Google Ads (PMax)*\n${gadsLines}\nSpend: ₹${gadsSpend.toFixed(0)} | Impressions: ${gadsImpr.toLocaleString()}\n\n*Total today: ₹${total.toFixed(0)}*`;\n\nreturn [{ json: { message: msg } }];"
+      },
+      "id": "format-report",
+      "name": "Format Report",
+      "type": "n8n-nodes-base.code",
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://openclaw-agent.happyocean-047968bd.centralindia.azurecontainerapps.io/webhook/send",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={ \"to\": \"whatsapp\", \"message\": \"{{ $json.message }}\" }"
+      },
+      "id": "send-whatsapp",
+      "name": "Send WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [960, 300]
+    }
+  ],
+  "connections": {
+    "Daily 9AM IST": { "main": [[{ "node": "Meta Ads Insights" }, { "node": "Google Ads Metrics" }]] },
+    "Meta Ads Insights": { "main": [[{ "node": "Format Report" }]] },
+    "Google Ads Metrics": { "main": [[{ "node": "Format Report" }]] },
+    "Format Report": { "main": [[{ "node": "Send WhatsApp" }]] }
+  },
+  "active": true,
+  "settings": { "timezone": "Asia/Kolkata" }
+}
