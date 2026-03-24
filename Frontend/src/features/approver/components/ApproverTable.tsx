@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useRef, useState, useMemo } from 'react';
-import { Table, Tag, Form, Input, Select, Button, Typography, Image } from 'antd';
+import { Table, Tag, Form, Input, Select, Button, Typography, Image, Modal } from 'antd';
 import { EditOutlined } from '@ant-design/icons';
 import type { FormInstance } from 'antd/es/form';
 import { getImageUrl } from '../../../shared/utils/common/helpers';
@@ -34,6 +34,7 @@ export interface ApproverItem {
     designNumber: string | null;
     approvalStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
     sapSyncStatus: 'NOT_SYNCED' | 'PENDING' | 'SYNCED' | 'FAILED';
+    sapSyncMessage: string | null;
     createdAt: string;
     updatedAt: string;
     userName: string | null;
@@ -221,6 +222,9 @@ export const ApproverTable: React.FC<ApproverTableProps> = ({
     attributes = [],
     user
 }) => {
+    const [remarksModalOpen, setRemarksModalOpen] = useState(false);
+    const [activeRemarks, setActiveRemarks] = useState('');
+
     const components = {
         body: {
             row: EditableRow,
@@ -301,16 +305,68 @@ export const ApproverTable: React.FC<ApproverTableProps> = ({
             title: 'Status',
             key: 'status',
             width: 120,
-            render: (_: unknown, row: ApproverItem) => (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <Tag color={
-                        row.approvalStatus === 'APPROVED' ? 'green' :
-                            row.approvalStatus === 'REJECTED' ? 'red' : 'gold'
-                    }>
-                        {row.approvalStatus}
-                    </Tag>
-                </div>
-            )
+            render: (_: unknown, row: ApproverItem) => {
+                const isFailed = row.sapSyncStatus === 'FAILED';
+                const isDone = row.approvalStatus === 'APPROVED' && row.sapSyncStatus === 'SYNCED';
+
+                const displayStatus = isFailed
+                    ? 'FAILED'
+                    : row.approvalStatus === 'REJECTED'
+                        ? 'REJECTED'
+                        : isDone
+                            ? 'DONE'
+                            : 'PENDING';
+
+                const color = displayStatus === 'DONE'
+                    ? 'green'
+                    : (displayStatus === 'FAILED' || displayStatus === 'REJECTED')
+                        ? 'red'
+                        : 'gold';
+
+                return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <Tag color={color}>{displayStatus}</Tag>
+                    </div>
+                );
+            }
+        },
+        {
+            title: 'Remarks',
+            dataIndex: 'sapSyncMessage',
+            key: 'sapSyncMessage',
+            width: 320,
+            render: (value: unknown) => {
+                const text = value == null ? '' : String(value);
+                if (!text.trim()) return '-';
+
+                return (
+                    <div>
+                        <div
+                            title={text}
+                            style={{
+                                whiteSpace: 'pre-wrap',
+                                wordBreak: 'break-word',
+                                lineHeight: 1.3,
+                                maxHeight: 84,
+                                overflowY: 'auto'
+                            }}
+                        >
+                            {text}
+                        </div>
+                        <Button
+                            type="link"
+                            size="small"
+                            style={{ padding: 0, height: 'auto', marginTop: 4 }}
+                            onClick={() => {
+                                setActiveRemarks(text);
+                                setRemarksModalOpen(true);
+                            }}
+                        >
+                            View Full
+                        </Button>
+                    </div>
+                );
+            }
         },
         // Core Attributes
         { title: 'Rate', dataIndex: 'rate', key: 'rate', width: 100, editable: true },
@@ -545,29 +601,50 @@ export const ApproverTable: React.FC<ApproverTableProps> = ({
     });
 
     return (
-        <Table
-            components={components}
-            rowClassName={() => 'editable-row'}
-            rowKey="id"
-            columns={columns as any}
-            dataSource={items}
-            loading={loading}
-            pagination={{
-                pageSize: 5,
-                showSizeChanger: true,
-                pageSizeOptions: ['5', '10', '50', '100', '200'],
-                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
-                position: ['bottomRight'],
-            }}
-            scroll={{ x: 'max-content', y: 'calc(100vh - 280px)' }}
-            sticky
-            rowSelection={{
-                selectedRowKeys,
-                onChange: onSelectionChange,
-                getCheckboxProps: (record) => ({
-                    disabled: record.approvalStatus === 'APPROVED',
-                }),
-            }}
-        />
+        <>
+            <Table
+                components={components}
+                rowClassName={() => 'editable-row'}
+                rowKey="id"
+                columns={columns as any}
+                dataSource={items}
+                loading={loading}
+                pagination={{
+                    pageSize: 5,
+                    showSizeChanger: true,
+                    pageSizeOptions: ['5', '10', '50', '100', '200'],
+                    showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+                    position: ['bottomRight'],
+                }}
+                scroll={{ x: 'max-content', y: 'calc(100vh - 280px)' }}
+                sticky
+                rowSelection={{
+                    selectedRowKeys,
+                    onChange: onSelectionChange,
+                    getCheckboxProps: (record) => ({
+                        disabled: record.approvalStatus === 'APPROVED',
+                    }),
+                }}
+            />
+
+            <Modal
+                title="SAP Sync Remarks"
+                open={remarksModalOpen}
+                onCancel={() => setRemarksModalOpen(false)}
+                footer={null}
+                width={760}
+            >
+                <div
+                    style={{
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                        maxHeight: '60vh',
+                        overflowY: 'auto'
+                    }}
+                >
+                    {activeRemarks || '-'}
+                </div>
+            </Modal>
+        </>
     );
 };
