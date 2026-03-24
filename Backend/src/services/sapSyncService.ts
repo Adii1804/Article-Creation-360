@@ -139,21 +139,196 @@ const extractSapArticleNumber = (parsed: unknown, message: string): string | und
   return undefined;
 };
 
+const normalizeSapKey = (key: string): string => key.toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+const MESSAGE_KEYS = new Set([
+  'MESSAGE',
+  'MESSAGES',
+  'MSG',
+  'TEXT',
+  'DETAIL',
+  'DETAILS',
+  'ERROR',
+  'ERRORMESSAGE',
+  'LONGTEXT',
+  'MESSAGEV1',
+  'MESSAGEV2',
+  'MESSAGEV3',
+  'MESSAGEV4',
+  'MESSAGE1',
+  'MESSAGE2',
+  'MESSAGE3',
+  'MESSAGE4'
+].map(normalizeSapKey));
+
+const RETURN_TABLE_KEYS = new Set(['RETURN', 'RETURNS', 'ETRETURN', 'TRETURN']);
+
+const normalizeMessageText = (value: unknown): string | null => {
+  if (value === null || value === undefined) return null;
+  const text = String(value).trim();
+  return text ? text : null;
+};
+
+const tryParseSapJson = (raw: string): unknown => {
+  const text = String(raw || '').trim();
+  if (!text) return undefined;
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    // Some SAP gateways prepend/append non-JSON wrappers.
+    const startObj = text.indexOf('{');
+    const endObj = text.lastIndexOf('}');
+    if (startObj >= 0 && endObj > startObj) {
+      const candidate = text.slice(startObj, endObj + 1);
+      try {
+        return JSON.parse(candidate);
+      } catch {
+        // ignore
+      }
+    }
+
+    const startArr = text.indexOf('[');
+    const endArr = text.lastIndexOf(']');
+    if (startArr >= 0 && endArr > startArr) {
+      const candidate = text.slice(startArr, endArr + 1);
+      try {
+        return JSON.parse(candidate);
+      } catch {
+        // ignore
+      }
+    }
+
+    return undefined;
+  }
+};
+
+const collectSapMessages = (input: unknown): string[] => {
+  const out: string[] = [];
+  const seen = new Set<string>();
+
+  const add = (value: unknown) => {
+    const normalized = normalizeMessageText(value);
+    if (!normalized) return;
+    const key = normalized.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(normalized);
+  };
+
+  const visit = (node: unknown) => {
+    if (node === null || node === undefined) return;
+
+    if (typeof node === 'string' || typeof node === 'number' || typeof node === 'boolean') {
+      return;
+    }
+
+    if (Array.isArray(node)) {
+      for (const item of node) {
+        visit(item);
+      }
+      return;
+    }
+
+    if (typeof node === 'object') {
+      const record = node as Record<string, unknown>;
+
+      // Handle SAP RETURN row structures where message can be split across fields.
+      const rowType = normalizeMessageText(record.TYPE ?? record.MsgType ?? record.MSG_TYP);
+      const rowMessage = normalizeMessageText(record.MESSAGE ?? record.Message ?? record.MSG);
+      const rowMessageParts = [
+        normalizeMessageText(record.MESSAGE_V1 ?? record.MESSAGEV1),
+        normalizeMessageText(record.MESSAGE_V2 ?? record.MESSAGEV2),
+        normalizeMessageText(record.MESSAGE_V3 ?? record.MESSAGEV3),
+        normalizeMessageText(record.MESSAGE_V4 ?? record.MESSAGEV4)
+      ].filter((part): part is string => !!part);
+
+      const hasReturnRowSignature =
+        rowType || rowMessage || rowMessageParts.length > 0 || record.ID || record.NUMBER;
+
+      if (hasReturnRowSignature) {
+        const id = normalizeMessageText(record.ID);
+        const number = normalizeMessageText(record.NUMBER);
+        const merged = [rowMessage, ...rowMessageParts].filter((m): m is string => !!m).join(' | ');
+        if (merged) {
+          const codePrefix = [id, number].filter(Boolean).join('-');
+          const prefix = [rowType ? `[${rowType}]` : null, codePrefix ? `[${codePrefix}]` : null]
+            .filter(Boolean)
+            .join(' ');
+
+          add(prefix ? `${prefix} ${merged}` : merged);
+        }
+      }
+
+      for (const [rawKey, value] of Object.entries(record)) {
+        const normalizedKey = normalizeSapKey(rawKey);
+
+        if (MESSAGE_KEYS.has(normalizedKey)) {
+          add(value);
+        }
+
+        if (RETURN_TABLE_KEYS.has(normalizedKey) && Array.isArray(value)) {
+          for (const row of value) {
+            visit(row);
+          }
+          continue;
+        }
+
+        visit(value);
+      }
+    }
+  };
+
+  visit(input);
+  return out;
+};
+
+const buildSapSyncMessage = (rawResponse: string, parsedBody: unknown, statusCode: number, msgType?: string): string => {
+  const payloadText = String(rawResponse || '').trim();
+  const extractedMessages = collectSapMessages(parsedBody);
+
+  let combinedMessage = '';
+
+  // Keep only message text returned by SAP (no raw JSON payload in UI/DB message field).
+  if (extractedMessages.length > 0) {
+    combinedMessage = extractedMessages.length === 1
+      ? extractedMessages[0]
+      : extractedMessages.map((m, i) => `${i + 1}. ${m}`).join('\n');
+  } else if (payloadText && !payloadText.startsWith('{') && !payloadText.startsWith('[')) {
+    // Non-JSON plain-text SAP responses are treated as direct SAP message text.
+    combinedMessage = payloadText;
+  } else {
+    combinedMessage = `No detailed message returned by SAP (HTTP ${statusCode})`;
+  }
+
+  if (msgType && !combinedMessage.startsWith(`[MSG_TYP=${msgType}]`)) {
+    combinedMessage = `[MSG_TYP=${msgType}] ${combinedMessage}`;
+  }
+
+  return combinedMessage.trim() || `SAP sync response empty`;
+};
+
 const parseSapResponse = (statusCode: number, responseText: string): SapCallOutcome => {
-  let message = responseText.slice(0, 300) || `SAP sync failed with status ${statusCode}`;
+  const rawResponse = String(responseText || '').trim();
+  let message = rawResponse || `SAP sync failed with status ${statusCode}`;
   let isBusinessFailure = false;
   let parsedBody: unknown;
   let sapArticleNumber: string | undefined;
   let msgType: string | undefined;
 
   try {
-    const parsed = JSON.parse(responseText) as {
+    const parsed = tryParseSapJson(responseText) as {
       Status?: boolean;
       Message?: string;
       MESSAGE?: string;
       MSG_TYP?: string;
       SAP_ART?: string;
-    };
+    } | undefined;
+
+    if (!parsed || typeof parsed !== 'object') {
+      throw new Error('SAP response is not valid JSON');
+    }
+
     parsedBody = parsed;
 
     // Primary integration contract fields from SAP:
@@ -166,13 +341,8 @@ const parseSapResponse = (statusCode: number, responseText: string): SapCallOutc
       msgType = parsed.MSG_TYP.trim().toUpperCase();
     }
 
-    if (typeof parsed?.MESSAGE === 'string' && parsed.MESSAGE.trim()) {
-      message = parsed.MESSAGE.trim();
-    }
-
-    if (typeof parsed?.Message === 'string' && parsed.Message.trim()) {
-      message = parsed.Message.trim();
-    }
+    // Keep full SAP payload in message for complete traceability.
+    // We do NOT overwrite message with only parsed MESSAGE/Message fields.
 
     if (parsed?.Status === false) {
       isBusinessFailure = true;
@@ -181,17 +351,14 @@ const parseSapResponse = (statusCode: number, responseText: string): SapCallOutc
     // Non-JSON response, keep fallback message
   }
 
-  const lowerMessage = message.toLowerCase();
+  const lowerMessage = rawResponse.toLowerCase();
   const isUnknownElementError =
     lowerMessage.includes('unknown') &&
     (lowerMessage.includes('element') || lowerMessage.includes('container metadata'));
 
-  sapArticleNumber = sapArticleNumber || extractSapArticleNumber(parsedBody, message);
+  sapArticleNumber = sapArticleNumber || extractSapArticleNumber(parsedBody, rawResponse);
 
-  // We don't persist MSG_TYP in DB (no column), but keep it visible in sync message.
-  if (msgType) {
-    message = `[MSG_TYP=${msgType}] ${message}`;
-  }
+  message = buildSapSyncMessage(rawResponse, parsedBody, statusCode, msgType);
 
   const ok = statusCode >= 200 && statusCode < 300 && !isBusinessFailure;
   return {

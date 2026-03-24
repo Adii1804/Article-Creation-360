@@ -557,6 +557,7 @@ export default function ApproverDashboard() {
                             >
                                 <Option value="PENDING">Pending</Option>
                                 <Option value="APPROVED">Approved</Option>
+                                <Option value="FAILED">Failed</Option>
                                 <Option value="REJECTED">Rejected</Option>
                                 <Option value="ALL">All Statuses</Option>
                             </Select>

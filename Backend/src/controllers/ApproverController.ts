@@ -319,10 +319,38 @@ export class ApproverController {
             }
 
             // Status Filtering (Multi-select support)
+            // Supports virtual FAILED status mapped from sapSyncStatus=FAILED.
             if (status && status !== 'ALL') {
-                const statuses = (status as string).split(',').map(s => s.trim()) as ApprovalStatus[];
-                if (statuses.length > 0) {
-                    where.approvalStatus = { in: statuses };
+                const requestedStatuses = (status as string)
+                    .split(',')
+                    .map(s => String(s || '').trim().toUpperCase())
+                    .filter(Boolean);
+
+                const approvalStatuses = requestedStatuses.filter((s) =>
+                    s === ApprovalStatus.PENDING ||
+                    s === ApprovalStatus.APPROVED ||
+                    s === ApprovalStatus.REJECTED
+                ) as ApprovalStatus[];
+
+                const includeFailed = requestedStatuses.includes('FAILED');
+
+                if (approvalStatuses.length > 0 || includeFailed) {
+                    const statusPredicates: any[] = [];
+
+                    if (approvalStatuses.length > 0) {
+                        statusPredicates.push({ approvalStatus: { in: approvalStatuses } });
+                    }
+
+                    if (includeFailed) {
+                        statusPredicates.push({ sapSyncStatus: SapSyncStatus.FAILED });
+                    }
+
+                    where.AND = where.AND || [];
+                    where.AND.push(
+                        statusPredicates.length === 1
+                            ? statusPredicates[0]
+                            : { OR: statusPredicates }
+                    );
                 }
             }
 
