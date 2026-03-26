@@ -337,7 +337,7 @@ const SimplifiedExtractionPage = () => {
   }, []);
 
   return (
-    <Layout className="app-layout">
+    <Layout className="app-layout extraction-scroll-page">
       <Content className="app-content">
         <div className="content-wrapper">
           {/* Header */}

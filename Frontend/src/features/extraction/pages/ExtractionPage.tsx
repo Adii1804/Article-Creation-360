@@ -219,7 +219,7 @@ const ExtractionPage = () => {
       </Content>
     </Layout>
   ) : (
-    <Layout className="app-layout">
+    <Layout className="app-layout extraction-scroll-page">
       <Content className="app-content">
         <div className="content-wrapper">
           {/* Step Indicator - Compact */}

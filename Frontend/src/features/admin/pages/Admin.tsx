@@ -159,7 +159,7 @@ export default function Admin() {
     : [];
 
   return (
-    <div style={{ padding: 24 }}>
+    <div className="page-scroll-enabled" style={{ padding: 24 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <h1>Admin Dashboard</h1>
         <Button icon={<ReloadOutlined />} onClick={loadData} loading={loading}>

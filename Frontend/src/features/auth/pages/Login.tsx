@@ -43,21 +43,27 @@ export default function Login() {
       minHeight: '100vh',
       display: 'flex',
       alignItems: 'center',
-      justifyContent: 'center',
-      background: 'linear-gradient(135deg, #FF6F61 0%, #FFA62B 100%)',
-      padding: '20px'
+      justifyContent: 'flex-start',
+      backgroundImage: 'linear-gradient(90deg, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0.15) 35%, rgba(0, 0, 0, 0.05) 100%), url("/Centric-Page2.jpg")',
+      backgroundSize: 'cover',
+      backgroundPosition: 'center right',
+      backgroundRepeat: 'no-repeat',
+      padding: '20px 20px 20px 15vw'
     }}>
       <Card
         style={{
           width: '100%',
           maxWidth: 440,
-          boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
-          borderRadius: '12px'
+          boxShadow: '0 10px 34px rgba(0,0,0,0.20)',
+          borderRadius: '12px',
+          background: 'rgba(255, 255, 255, 0.84)',
+          backdropFilter: 'blur(5px)',
+          border: '1px solid rgba(255, 255, 255, 0.45)'
         }}
       >
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <Title level={2} style={{ color: '#FF6F61', marginBottom: 8 }}>
-            AI Fashion Extractor
+            Automatic Article Creation
           </Title>
           <Text type="secondary" style={{ fontSize: '15px' }}>
             Sign in to manage your fashion catalog
@@ -79,7 +85,7 @@ export default function Login() {
           >
             <Input
               prefix={<UserOutlined style={{ color: '#bfbfbf' }} />}
-              placeholder="admin@fashion.com"
+              placeholder="Enter your email address"
             />
           </Form.Item>
 

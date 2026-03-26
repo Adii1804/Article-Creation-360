@@ -5,6 +5,7 @@ import type { FormInstance } from 'antd/es/form';
 import { getImageUrl } from '../../../shared/utils/common/helpers';
 import { SIMPLIFIED_HIERARCHY } from '../../extraction/components/SimplifiedCategorySelector';
 import { MAJOR_CATEGORY_ALLOWED_VALUES } from '../../../data/majorCategoryMap';
+import './ApproverTable.css';
 
 const { Text } = Typography;
 const { Option } = Select;
@@ -211,6 +212,7 @@ interface ApproverTableProps {
     onSave: (item: ApproverItem) => void;
     attributes?: MasterAttribute[];
     user?: any;
+    tableHeight?: number | string;
 }
 
 export const ApproverTable: React.FC<ApproverTableProps> = ({
@@ -221,7 +223,8 @@ export const ApproverTable: React.FC<ApproverTableProps> = ({
     onEdit,
     onSave,
     attributes = [],
-    user
+    user,
+    tableHeight = 'calc(100vh - 460px)'
 }) => {
     const [remarksModalOpen, setRemarksModalOpen] = useState(false);
     const [activeRemarks, setActiveRemarks] = useState('');
@@ -609,19 +612,20 @@ export const ApproverTable: React.FC<ApproverTableProps> = ({
         <>
             <Table
                 components={components}
+                className="approver-compact-table"
                 rowClassName={() => 'editable-row'}
                 rowKey="id"
                 columns={columns as any}
                 dataSource={items}
                 loading={loading}
+                size="small"
                 pagination={{
-                    pageSize: 5,
-                    showSizeChanger: true,
-                    pageSizeOptions: ['5', '10', '50', '100', '200'],
+                    pageSize: 50,
+                    showSizeChanger: false,
                     showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
                     position: ['bottomRight'],
                 }}
-                scroll={{ x: 'max-content', y: 'calc(100vh - 280px)' }}
+                scroll={{ x: 'max-content', y: tableHeight }}
                 sticky
                 rowSelection={{
                     selectedRowKeys,

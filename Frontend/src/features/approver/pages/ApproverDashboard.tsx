@@ -525,9 +525,9 @@ export default function ApproverDashboard() {
     );
 
     return (
-        <div style={{ padding: 24 }}>
-            <div style={{ marginBottom: 24 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div style={{ height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div style={{ marginBottom: 12, flexShrink: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                     <div>
                         <Title level={2} style={{ margin: 0 }}>Approver Dashboard</Title>
                         <Text type="secondary">
@@ -537,7 +537,7 @@ export default function ApproverDashboard() {
                     </div>
                 </div>
 
-                <Card size="small" style={{ marginBottom: 16 }}>
+                <Card size="small" style={{ marginBottom: 0 }}>
                     <Row gutter={[16, 16]} align="middle">
                         <Col xs={24} sm={8} md={6}>
                             <Input.Search
@@ -611,16 +611,23 @@ export default function ApproverDashboard() {
                 </Card>
             </div>
 
-            <Card bordered={false} className="shadow-sm">
-                <ApproverTable
-                    items={items}
-                    loading={loading}
-                    selectedRowKeys={selectedRowKeys}
-                    onSelectionChange={setSelectedRowKeys}
-                    onEdit={handleEdit}
-                    attributes={attributes}
-                    user={user}
-                    onSave={async (row) => {
+            <Card
+                variant="borderless"
+                className="shadow-sm"
+                style={{ flex: 1, minHeight: 0 }}
+                styles={{ body: { height: '100%', padding: 12, display: 'flex', flexDirection: 'column' } }}
+            >
+                <div style={{ flex: 1, minHeight: 0 }}>
+                    <ApproverTable
+                        items={items}
+                        loading={loading}
+                        selectedRowKeys={selectedRowKeys}
+                        onSelectionChange={setSelectedRowKeys}
+                        onEdit={handleEdit}
+                        attributes={attributes}
+                        user={user}
+                        tableHeight="calc(100vh - 460px)"
+                        onSave={async (row) => {
                         // Optimistic update
                         const newData = [...items];
                         const index = newData.findIndex((item) => item.id === row.id);
@@ -666,8 +673,9 @@ export default function ApproverDashboard() {
                             message.error('Failed to update');
                             fetchItems(); // Revert on failure
                         }
-                    }}
-                />
+                        }}
+                    />
+                </div>
             </Card>
 
             <Modal

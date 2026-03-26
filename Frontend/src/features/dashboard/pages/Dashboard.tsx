@@ -4,7 +4,9 @@ import { Card, Row, Col, Button, Typography, Space } from 'antd';
 import {
   ShoppingOutlined,
   ThunderboltOutlined,
-  ControlOutlined
+  ControlOutlined,
+  CalendarOutlined,
+  BarChartOutlined
 } from '@ant-design/icons';
 import './Dashboard.css';
 import { APP_CONFIG } from '../../../constants/app/config';
@@ -139,16 +141,15 @@ export default function Dashboard() {
       </div>
 
       <Row gutter={[16, 16]} className="dashboard-panels">
-        <Col xs={24} lg={24}>
+        <Col xs={24} xl={16}>
           <Card className="dashboard-panel dashboard-panel-soft">
             <Title level={4}>Quick Actions</Title>
-            <Paragraph type="secondary">Stay productive with a single click.</Paragraph>
-            <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+            <Paragraph type="secondary">Use the full workspace with direct shortcuts.</Paragraph>
+            <div className="dashboard-actions-row">
               <Button
                 type="primary"
                 icon={<ThunderboltOutlined />}
                 className="dashboard-action-btn"
-                block
                 onClick={() => navigate('/extraction')}
               >
                 Start Extraction
@@ -156,7 +157,6 @@ export default function Dashboard() {
               <Button
                 icon={<ShoppingOutlined />}
                 className="dashboard-action-btn ghost"
-                block
                 onClick={() => navigate('/products')}
               >
                 Go to Products
@@ -165,13 +165,43 @@ export default function Dashboard() {
                 <Button
                   icon={<ControlOutlined />}
                   className="dashboard-action-btn ghost"
-                  block
                   onClick={() => navigate('/admin')}
                 >
                   Open Admin Panel
                 </Button>
               )}
-            </Space>
+            </div>
+          </Card>
+        </Col>
+
+        <Col xs={24} xl={8}>
+          <Card className="dashboard-panel dashboard-panel-soft dashboard-glance-card">
+            <Title level={4}>At a Glance</Title>
+            <div className="dashboard-glance-list">
+              <div className="dashboard-glance-item">
+                <div className="dashboard-glance-icon">
+                  <CalendarOutlined />
+                </div>
+                <div>
+                  <Text className="dashboard-glance-label">Today</Text>
+                  <Title level={5} className="dashboard-glance-value">
+                    {todayCount ?? 0} extraction{(todayCount ?? 0) === 1 ? '' : 's'}
+                  </Title>
+                </div>
+              </div>
+
+              <div className="dashboard-glance-item">
+                <div className="dashboard-glance-icon accent">
+                  <BarChartOutlined />
+                </div>
+                <div>
+                  <Text className="dashboard-glance-label">Total</Text>
+                  <Title level={5} className="dashboard-glance-value">
+                    {totalCount ?? 0} job{(totalCount ?? 0) === 1 ? '' : 's'}
+                  </Title>
+                </div>
+              </div>
+            </div>
           </Card>
         </Col>
       </Row>

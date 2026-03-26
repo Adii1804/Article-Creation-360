@@ -1,5 +1,11 @@
 /* Extraction Page Styles */
 
+.extraction-scroll-page {
+  height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
 /* Steps Card */
 .steps-card {
   background: linear-gradient(135deg, #fbf8f4 0%, #ffffff 100%);
