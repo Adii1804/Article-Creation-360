@@ -714,38 +714,8 @@ export class ApproverController {
             const syncResults = await syncApprovedItemsToSap(approvedItems);
             const approvedItemById = new Map(approvedItems.map((item) => [item.id, item]));
 
-            const finalizedSyncResults = await Promise.all(syncResults.map(async (syncResult) => {
-                if (!syncResult.success || !syncResult.sapArticleNumber) {
-                    return syncResult as any;
-                }
-
-                const approvedItem = approvedItemById.get(syncResult.id);
-                if (!approvedItem?.imageUrl) {
-                    return {
-                        ...syncResult,
-                        success: false,
-                        message: `${syncResult.message} | Approved image upload failed: source image URL missing`
-                    } as any;
-                }
-
-                try {
-                    const approvedImageUpload = await storageService.uploadApprovedImageFromSourceUrl(
-                        String(approvedItem.imageUrl),
-                        String(syncResult.sapArticleNumber)
-                    );
-
-                    return {
-                        ...syncResult,
-                        approvedImageUrl: approvedImageUpload.url
-                    } as any;
-                } catch (error: any) {
-                    return {
-                        ...syncResult,
-                        success: false,
-                        message: `${syncResult.message} | Approved image upload failed: ${error?.message || 'unknown error'}`
-                    } as any;
-                }
-            }));
+            // Phase 1: Persist SAP article creation/sync outcome first.
+            const finalizedSyncResults = syncResults.map((syncResult: any) => ({ ...syncResult }));
 
             const syncUpdates = finalizedSyncResults.map((syncResult: any) => {
                 const data: any = {
@@ -771,6 +741,47 @@ export class ApproverController {
             if (syncUpdates.length > 0) {
                 await prisma.$transaction(syncUpdates);
             }
+
+            // Phase 2: Upload approved image only after article creation is persisted.
+            await Promise.all(finalizedSyncResults.map(async (syncResult: any) => {
+                if (!syncResult.success || !syncResult.sapArticleNumber) {
+                    return null;
+                }
+
+                const approvedItem = approvedItemById.get(syncResult.id);
+                if (!approvedItem?.imageUrl) {
+                    await prisma.extractionResultFlat.update({
+                        where: { id: syncResult.id },
+                        data: {
+                            sapSyncMessage: `${syncResult.message} | Approved image upload skipped: source image URL missing`
+                        }
+                    });
+                    return null;
+                }
+
+                try {
+                    const approvedImageUpload = await storageService.uploadApprovedImageFromSourceUrl(
+                        String(approvedItem.imageUrl),
+                        String(syncResult.sapArticleNumber)
+                    );
+
+                    await prisma.extractionResultFlat.update({
+                        where: { id: syncResult.id },
+                        data: {
+                            imageUrl: approvedImageUpload.url
+                        }
+                    });
+                    return null;
+                } catch (error: any) {
+                    await prisma.extractionResultFlat.update({
+                        where: { id: syncResult.id },
+                        data: {
+                            sapSyncMessage: `${syncResult.message} | Approved image upload failed: ${error?.message || 'unknown error'}`
+                        }
+                    });
+                    return null;
+                }
+            }));
 
             const syncedCount = finalizedSyncResults.filter((r: any) => r.success).length;
             const failedCount = finalizedSyncResults.length - syncedCount;

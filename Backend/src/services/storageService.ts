@@ -19,18 +19,44 @@ export class StorageService {
     private approvedBucket: string;
     private approvedPublicUrlBase: string | undefined;
 
-    constructor() {
-        const accountId = process.env.R2_ACCOUNT_ID;
-        const accessKeyId = process.env.R2_ACCESS_KEY_ID;
-        const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
-        this.bucket = process.env.R2_BUCKET_NAME || '';
-        this.publicUrlBase = process.env.R2_PUBLIC_URL_BASE; // Custom domain or worker URL
+    private normalizeEnv(value?: string | null): string | undefined {
+        const v = String(value || '').trim();
+        return v || undefined;
+    }
 
-        const approvedAccountId = process.env.APPROVED_R2_ACCOUNT_ID || accountId;
-        const approvedAccessKeyId = process.env.APPROVED_R2_ACCESS_KEY_ID || accessKeyId;
-        const approvedSecretAccessKey = process.env.APPROVED_R2_SECRET_ACCESS_KEY || secretAccessKey;
-        this.approvedBucket = process.env.APPROVED_R2_BUCKET_NAME || this.bucket;
-        this.approvedPublicUrlBase = process.env.APPROVED_R2_PUBLIC_URL_BASE || this.publicUrlBase;
+    private normalizeAccountId(value?: string | null): string | undefined {
+        const raw = String(value || '').trim();
+        if (!raw) return undefined;
+
+        const noProto = raw.replace(/^https?:\/\//i, '');
+        const hostAndPath = noProto.split('/')[0];
+        const withoutSuffix = hostAndPath.replace(/\.r2\.cloudflarestorage\.com$/i, '');
+        return withoutSuffix.trim() || undefined;
+    }
+
+    private isR2ApiStyleBaseUrl(url?: string): boolean {
+        if (!url) return false;
+        return /\.r2\.cloudflarestorage\.com(\/|$)/i.test(url);
+    }
+
+    private buildPublicUrl(baseUrl: string, bucket: string, key: string): string {
+        const base = baseUrl.replace(/\/$/, '');
+        const hasBucketInBase = new RegExp(`/${bucket.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:$|/)`, 'i').test(base);
+        return hasBucketInBase ? `${base}/${key}` : `${base}/${key}`;
+    }
+
+    constructor() {
+        const accountId = this.normalizeAccountId(process.env.R2_ACCOUNT_ID);
+        const accessKeyId = this.normalizeEnv(process.env.R2_ACCESS_KEY_ID);
+        const secretAccessKey = this.normalizeEnv(process.env.R2_SECRET_ACCESS_KEY);
+        this.bucket = this.normalizeEnv(process.env.R2_BUCKET_NAME) || '';
+        this.publicUrlBase = this.normalizeEnv(process.env.R2_PUBLIC_URL_BASE); // Custom domain or worker URL
+
+        const approvedAccountId = this.normalizeAccountId(process.env.APPROVED_R2_ACCOUNT_ID) || accountId;
+        const approvedAccessKeyId = this.normalizeEnv(process.env.APPROVED_R2_ACCESS_KEY_ID) || accessKeyId;
+        const approvedSecretAccessKey = this.normalizeEnv(process.env.APPROVED_R2_SECRET_ACCESS_KEY) || secretAccessKey;
+        this.approvedBucket = this.normalizeEnv(process.env.APPROVED_R2_BUCKET_NAME) || this.bucket;
+        this.approvedPublicUrlBase = this.normalizeEnv(process.env.APPROVED_R2_PUBLIC_URL_BASE) || this.publicUrlBase;
 
         if (!accountId || !accessKeyId || !secretAccessKey || !this.bucket) {
             console.warn('⚠️ Cloudflare R2 credentials missing. Storage service may fail.');
@@ -39,6 +65,9 @@ export class StorageService {
         this.s3Client = new S3Client({
             region: 'auto',
             endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+            forcePathStyle: true,
+            requestChecksumCalculation: 'WHEN_REQUIRED',
+            responseChecksumValidation: 'WHEN_REQUIRED',
             credentials: {
                 accessKeyId: accessKeyId || '',
                 secretAccessKey: secretAccessKey || ''
@@ -48,11 +77,40 @@ export class StorageService {
         this.approvedS3Client = new S3Client({
             region: 'auto',
             endpoint: `https://${approvedAccountId}.r2.cloudflarestorage.com`,
+            forcePathStyle: true,
+            requestChecksumCalculation: 'WHEN_REQUIRED',
+            responseChecksumValidation: 'WHEN_REQUIRED',
             credentials: {
                 accessKeyId: approvedAccessKeyId || '',
                 secretAccessKey: approvedSecretAccessKey || ''
             }
         });
+    }
+
+    private isSignatureMismatchError(error: any): boolean {
+        const code = String(error?.Code || error?.code || '').toLowerCase();
+        const message = String(error?.message || '').toLowerCase();
+        return code.includes('signaturedoesnotmatch') || message.includes('signaturedoesnotmatch');
+    }
+
+    private async putApprovedObject(
+        client: S3Client,
+        bucket: string,
+        key: string,
+        fileBuffer: Buffer,
+        mimeType: string,
+        safeArticleNumber: string
+    ): Promise<void> {
+        await client.send(new PutObjectCommand({
+            Bucket: bucket,
+            Key: key,
+            Body: fileBuffer,
+            ContentType: mimeType,
+            Metadata: {
+                'article-number': safeArticleNumber,
+                'uploaded-after-approval': 'true'
+            }
+        }));
     }
 
     private sanitizeArticleNumber(articleNumber: string): string {
@@ -142,8 +200,7 @@ export class StorageService {
             let url: string;
             if (this.publicUrlBase) {
                 // If custom domain is configured (e.g., https://cdn.example.com)
-                const baseUrl = this.publicUrlBase.replace(/\/$/, '');
-                url = `${baseUrl}/${key}`;
+                url = this.buildPublicUrl(this.publicUrlBase, this.bucket, key);
             } else {
                 // Fallback: Generate signed URL (valid for 7 days - R2/S3 maximum)
                 console.warn('⚠️ R2_PUBLIC_URL_BASE not set. Using signed URL (valid for 7 days).');
@@ -216,27 +273,34 @@ export class StorageService {
         const fileBuffer = Buffer.from(await response.arrayBuffer());
 
         try {
-            const upload = new Upload({
-                client: this.approvedS3Client,
-                params: {
-                    Bucket: this.approvedBucket,
-                    Key: key,
-                    Body: fileBuffer,
-                    ContentType: mimeType,
-                    Metadata: {
-                        'article-number': safeArticleNumber,
-                        'source-url': sourceImageUrl,
-                        'uploaded-after-approval': 'true'
-                    }
+            try {
+                await this.putApprovedObject(
+                    this.approvedS3Client,
+                    this.approvedBucket,
+                    key,
+                    fileBuffer,
+                    mimeType,
+                    safeArticleNumber
+                );
+            } catch (primaryError: any) {
+                if (!this.isSignatureMismatchError(primaryError) || this.approvedS3Client === this.s3Client) {
+                    throw primaryError;
                 }
-            });
 
-            await upload.done();
+                console.warn('⚠️ Approved bucket signature mismatch with approved credentials. Retrying with primary R2 credentials.');
+                await this.putApprovedObject(
+                    this.s3Client,
+                    this.approvedBucket,
+                    key,
+                    fileBuffer,
+                    mimeType,
+                    safeArticleNumber
+                );
+            }
 
             let url: string;
-            if (this.approvedPublicUrlBase) {
-                const baseUrl = this.approvedPublicUrlBase.replace(/\/$/, '');
-                url = `${baseUrl}/${key}`;
+            if (this.approvedPublicUrlBase && !this.isR2ApiStyleBaseUrl(this.approvedPublicUrlBase)) {
+                url = this.buildPublicUrl(this.approvedPublicUrlBase, this.approvedBucket, key);
             } else {
                 const command = new GetObjectCommand({
                     Bucket: this.approvedBucket,
