@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, Card, Input, Space, Table, Tag, Typography, Empty, message, Modal, Image, Descriptions, Form } from 'antd';
+import { Button, Card, Input, Select, Space, Table, Tag, Typography, Empty, message, Modal, Image, Descriptions, Form } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import { APP_CONFIG } from '../../../constants/app/config';
 import type { SchemaItem } from '../../../shared/types/extraction/ExtractionTypes';
@@ -141,6 +141,32 @@ export default function Products() {
   }, []);
 
   const exportSchema = useMemo(() => buildExportSchema(masterAttributes, masterAttributes), [masterAttributes]);
+
+  const normalizeAttrKey = useCallback((key: string) => String(key || '').toLowerCase().replace(/[^a-z0-9]/g, ''), []);
+
+  const attributeOptionsByKey = useMemo(() => {
+    const map = new Map<string, Array<{ label: string; value: string }>>();
+
+    masterAttributes.forEach((attr) => {
+      const options = (attr.allowedValues || [])
+        .map((value) => {
+          const short = (value?.shortForm || '').trim();
+          const full = (value?.fullForm || '').trim();
+          if (!short && !full) return null;
+
+          const optionValue = short || full;
+          const optionLabel = full && short ? `${short} - ${full}` : optionValue;
+          return { label: optionLabel, value: optionValue };
+        })
+        .filter((item): item is { label: string; value: string } => !!item);
+
+      if (options.length > 0) {
+        map.set(normalizeAttrKey(attr.key), options);
+      }
+    });
+
+    return map;
+  }, [masterAttributes, normalizeAttrKey]);
 
   const buildDetailsRows = useCallback((row: ProductRow) => {
     // If we have results from the full extraction job, use those
@@ -475,7 +501,7 @@ export default function Products() {
       }
     ];
     return baseColumns;
-  }, [handleExport, handleOpenEdit, handleView, handleViewDetails, isAdmin, isCreator]);
+  }, [handleExport, handleOpenEdit, handleView, handleViewDetails, isAdmin]);
 
   useEffect(() => {
     const fetchRows = async () => {
@@ -729,12 +755,32 @@ export default function Products() {
           <div style={{ maxHeight: 520, overflowY: 'auto', paddingRight: 8 }}>
             {EDITABLE_ATTRIBUTE_DEFINITIONS.map((item) => (
               <Form.Item key={item.key} label={item.label} style={{ marginBottom: 12 }}>
-                <Input
-                  value={editValues[item.key] ?? ''}
-                  onChange={(e) => setEditValues((prev) => ({ ...prev, [item.key]: e.target.value }))}
-                  disabled={savingEdits}
-                  placeholder={`Enter ${item.label}`}
-                />
+                {(() => {
+                  const options = attributeOptionsByKey.get(normalizeAttrKey(item.key)) || [];
+                  if (options.length > 0) {
+                    return (
+                      <Select
+                        showSearch
+                        allowClear
+                        options={options}
+                        optionFilterProp="label"
+                        value={editValues[item.key] || undefined}
+                        onChange={(value) => setEditValues((prev) => ({ ...prev, [item.key]: value ?? '' }))}
+                        disabled={savingEdits}
+                        placeholder={`Select ${item.label}`}
+                      />
+                    );
+                  }
+
+                  return (
+                    <Input
+                      value={editValues[item.key] ?? ''}
+                      onChange={(e) => setEditValues((prev) => ({ ...prev, [item.key]: e.target.value }))}
+                      disabled={savingEdits}
+                      placeholder={`Enter ${item.label}`}
+                    />
+                  );
+                })()}
               </Form.Item>
             ))}
           </div>
