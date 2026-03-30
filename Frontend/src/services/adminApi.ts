@@ -402,7 +402,7 @@ export const createUser = async (payload: {
   name: string;
   role?: 'ADMIN' | 'CREATOR' | 'PO_COMMITTEE' | 'APPROVER' | 'CATEGORY_HEAD';
   division?: string;
-  subDivision?: string;
+  subDivision?: string | string[];
 }): Promise<AdminUser> => {
   const { data } = await adminApi.post<ApiResponse<AdminUser>>('/users', payload);
   return data.data;
@@ -410,7 +410,10 @@ export const createUser = async (payload: {
 
 
 
-export const updateUser = async (id: number, payload: Partial<AdminUser> & { password?: string }): Promise<AdminUser> => {
+export const updateUser = async (
+  id: number,
+  payload: Omit<Partial<AdminUser>, 'subDivision'> & { subDivision?: string | string[] | null; password?: string }
+): Promise<AdminUser> => {
   const { data } = await adminApi.put<ApiResponse<AdminUser>>(`/users/${id}`, payload);
   return data.data;
 };

@@ -165,16 +165,26 @@ router.get('/history', async (req, res) => {
     const user = req.user!;
     const where: any = {};
 
+    const parseSubDivisions = (value: unknown): string[] => {
+      if (value === null || value === undefined) return [];
+      const tokens = String(value)
+        .split(/[;,|]+/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+      return Array.from(new Set(tokens));
+    };
+
     // RBAC Filtering Logic for Extraction Jobs
     const role = String(user.role || '');
 
     if (role === 'CREATOR' || role === 'PO_COMMITTEE') {
       where.userId = user.id;
     } else if (role === 'APPROVER') {
+      const subDivisionList = parseSubDivisions(user.subDivision);
       // Approvers filter by category hierarchy
       where.category = {
         subDepartment: {
-          code: user.subDivision || undefined,
+          code: subDivisionList.length > 1 ? { in: subDivisionList } : (subDivisionList[0] || undefined),
           department: {
             name: user.division || undefined
           }

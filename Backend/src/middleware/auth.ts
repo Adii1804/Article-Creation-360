@@ -10,6 +10,7 @@ import { prismaClient as prisma, withPrismaRetry } from '../utils/prisma';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 const AUTH_USER_CACHE_TTL_MS = 60 * 1000;
+const ENABLE_SINGLE_SESSION = String(process.env.ENABLE_SINGLE_SESSION || 'false').toLowerCase() === 'true';
 
 type CachedAuthUser = {
   id: number;
@@ -19,6 +20,7 @@ type CachedAuthUser = {
   division: string | null;
   subDivision: string | null;
   isActive: boolean;
+  lastLogin: Date | null;
 };
 
 const authUserCache = new Map<number, { user: CachedAuthUser; expiresAt: number }>();
@@ -40,6 +42,15 @@ function setCachedAuthUser(user: CachedAuthUser): void {
     user,
     expiresAt: Date.now() + AUTH_USER_CACHE_TTL_MS
   });
+}
+
+export function invalidateAuthUserCache(userId?: number): void {
+  if (typeof userId === 'number' && Number.isFinite(userId)) {
+    authUserCache.delete(userId);
+    return;
+  }
+
+  authUserCache.clear();
 }
 
 function isPoolExhaustionError(error: any): boolean {
@@ -128,6 +139,7 @@ export const authenticate = async (
             division: true,
             subDivision: true,
             isActive: true,
+            lastLogin: true,
           },
         })
       ) as CachedAuthUser | null;
@@ -155,6 +167,27 @@ export const authenticate = async (
         code: 'ACCOUNT_INACTIVE'
       });
       return;
+    }
+
+    if (ENABLE_SINGLE_SESSION) {
+      // Optional single-session enforcement:
+      // A new login updates user.lastLogin and issues a token with sessionIssuedAt.
+      // Older tokens become invalid after a later login.
+      const tokenSessionIssuedAt = Number((decoded as any)?.sessionIssuedAt || 0);
+      const tokenIatMs = Number((decoded as any)?.iat || 0) > 0 ? Number((decoded as any).iat) * 1000 : 0;
+      const tokenIssuedAtMs = tokenSessionIssuedAt > 0 ? tokenSessionIssuedAt : tokenIatMs;
+
+      if (tokenIssuedAtMs > 0 && user.lastLogin) {
+        const dbLastLoginMs = new Date(user.lastLogin).getTime();
+        if (dbLastLoginMs > tokenIssuedAtMs) {
+          res.status(401).json({
+            success: false,
+            error: 'Session expired because this account was logged in from another device. Please login again.',
+            code: 'SESSION_REVOKED'
+          });
+          return;
+        }
+      }
     }
 
     // Attach user to request

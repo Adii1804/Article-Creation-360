@@ -22,6 +22,16 @@ import * as XLSX from 'xlsx';
 const { Title, Text } = Typography;
 const { Option } = Select;
 
+const parseSubDivisionList = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value.map((v) => String(v).trim()).filter(Boolean);
+  }
+  if (typeof value === 'string') {
+    return value.split(',').map((v) => v.trim()).filter(Boolean);
+  }
+  return [];
+};
+
 export default function UsersManagement() {
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -176,7 +186,7 @@ export default function UsersManagement() {
       email: user.email,
       role: user.role,
       departmentId: divisionValue,
-      subDivision: user.subDivision,
+      subDivision: parseSubDivisionList(user.subDivision),
       password: '', // Clear password field
     });
 
@@ -189,7 +199,7 @@ export default function UsersManagement() {
 
   const handleDeptChange = (divName: string) => {
     setSelectedDeptId(divName);
-    form.setFieldValue('subDivision', undefined);
+    form.setFieldValue('subDivision', []);
   };
 
   const downloadBulkTemplate = async () => {
@@ -317,7 +327,8 @@ export default function UsersManagement() {
         const password = parseCell(row.password);
         const role = toRole(parseCell(row.role));
         const division = parseCell(row.division) || undefined;
-        const subDivision = parseCell(row.subDivision) || undefined;
+        const subDivisionValues = parseSubDivisionList(parseCell(row.subDivision));
+        const subDivision = subDivisionValues.length ? subDivisionValues : undefined;
 
         if (!name || !email || !password || !role) {
           failed += 1;
@@ -337,11 +348,12 @@ export default function UsersManagement() {
           continue;
         }
 
-        if ((role === 'CREATOR' || role === 'APPROVER') && division && subDivision) {
+        if ((role === 'CREATOR' || role === 'APPROVER') && division && subDivisionValues.length > 0) {
           const allowed = divisionToSubDivision.get(division.toUpperCase());
-          if (allowed && allowed.size > 0 && !allowed.has(subDivision.toUpperCase())) {
+          const invalidValues = subDivisionValues.filter((sd) => !allowed?.has(sd.toUpperCase()));
+          if (allowed && allowed.size > 0 && invalidValues.length > 0) {
             failed += 1;
-            errors.push(`Row ${line}: subDivision ${subDivision} is not valid for division ${division}`);
+            errors.push(`Row ${line}: subDivision ${invalidValues.join(', ')} is not valid for division ${division}`);
             continue;
           }
         }
@@ -601,9 +613,11 @@ export default function UsersManagement() {
                   rules={[{ required: true, message: 'Please select sub-division' }]}
                 >
                   <Select
+                    mode="multiple"
                     placeholder="Select Sub-Division"
                     disabled={!selectedDeptId}
                     suffixIcon={<AppstoreOutlined />}
+                    maxTagCount="responsive"
                   >
                     {availableSubDepts.map(sub => (
                       <Option key={sub.id} value={sub.code}>{sub.name} ({sub.code})</Option>

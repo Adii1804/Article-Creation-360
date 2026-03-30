@@ -7,11 +7,28 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prismaClient as prisma } from '../utils/prisma';
+import { invalidateAuthUserCache } from '../middleware/auth';
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const ENABLE_SINGLE_SESSION = String(process.env.ENABLE_SINGLE_SESSION || 'false').toLowerCase() === 'true';
+
+const normalizeSubDivisionInput = (value: unknown): string | null => {
+  if (value === null || value === undefined) return null;
+
+  const tokens = Array.isArray(value)
+    ? value.map((item) => String(item || '').trim())
+    : String(value)
+        .split(/[;,|]+/)
+        .map((item) => String(item || '').trim());
+
+  const unique = Array.from(new Set(tokens.filter(Boolean)));
+  if (unique.length === 0) return null;
+  return unique.join(',');
+};
 
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password, name, role, division, subDivision } = req.body;
+    const normalizedSubDivision = normalizeSubDivisionInput(subDivision);
 
     // Validation
     if (!email || !password || !name) {
@@ -21,7 +38,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 
     // Role-based validation
     if (role === 'CREATOR' || role === 'APPROVER') {
-      if (!division || !subDivision) {
+      if (!division || !normalizedSubDivision) {
         res.status(400).json({ success: false, error: 'Division and Sub-Division are required for Creators and Approvers' });
         return;
       }
@@ -58,7 +75,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         name,
         role: role || 'USER', // Default role if not provided
         division: role === 'PO_COMMITTEE' ? null : (division || null),
-        subDivision: (role === 'CATEGORY_HEAD' || role === 'PO_COMMITTEE') ? null : (subDivision || null),
+        subDivision: (role === 'CATEGORY_HEAD' || role === 'PO_COMMITTEE') ? null : normalizedSubDivision,
         isActive: true,
       },
       select: {
@@ -71,6 +88,8 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       },
     });
 
+    const sessionIssuedAt = Date.now();
+
     // Generate JWT token
     const token = jwt.sign(
       {
@@ -80,6 +99,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         name: user.name,
         division: user.division,
         subDivision: user.subDivision,
+        sessionIssuedAt,
       },
       JWT_SECRET,
       { expiresIn: '7d' }
@@ -130,11 +150,15 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    const sessionIssuedAt = Date.now();
+
     // Update last login
     await prisma.user.update({
       where: { id: user.id },
-      data: { lastLogin: new Date() },
+      data: { lastLogin: new Date(sessionIssuedAt) },
     });
+
+    invalidateAuthUserCache(user.id);
 
     // Generate JWT token
     const token = jwt.sign(
@@ -145,6 +169,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         name: user.name,
         division: user.division,
         subDivision: user.subDivision,
+        sessionIssuedAt,
       },
       JWT_SECRET,
       { expiresIn: '7d' }
@@ -188,12 +213,26 @@ export const verifyToken = async (req: Request, res: Response): Promise<void> =>
         name: true,
         role: true,
         isActive: true,
+        lastLogin: true,
       },
     });
-
     if (!user || !user.isActive) {
       res.status(401).json({ success: false, error: 'Invalid token' });
       return;
+    }
+
+    if (ENABLE_SINGLE_SESSION) {
+      const tokenSessionIssuedAt = Number((decoded as any)?.sessionIssuedAt || 0);
+      const tokenIatMs = Number((decoded as any)?.iat || 0) > 0 ? Number((decoded as any).iat) * 1000 : 0;
+      const tokenIssuedAtMs = tokenSessionIssuedAt > 0 ? tokenSessionIssuedAt : tokenIatMs;
+
+      if (tokenIssuedAtMs > 0 && user.lastLogin) {
+        const dbLastLoginMs = new Date(user.lastLogin).getTime();
+        if (dbLastLoginMs > tokenIssuedAtMs) {
+          res.status(401).json({ success: false, error: 'Session expired. Please login again.' });
+          return;
+        }
+      }
     }
 
     res.json({ success: true, data: { user } });

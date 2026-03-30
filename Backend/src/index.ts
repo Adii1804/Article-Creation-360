@@ -30,11 +30,13 @@ import { cacheService } from './services/cacheService';
 const app = express();
 const PORT = parseInt(process.env.PORT || '5000', 10);
 const isProduction = process.env.NODE_ENV === 'production';
+const RATE_LIMIT_WINDOW_MS = parseInt(process.env.RATE_LIMIT_WINDOW_MS || `${15 * 60 * 1000}`, 10);
+const RATE_LIMIT_MAX = parseInt(process.env.RATE_LIMIT_MAX || '500', 10);
 
 // Rate limiting middleware
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
+  windowMs: RATE_LIMIT_WINDOW_MS,
+  max: RATE_LIMIT_MAX,
   message: {
     success: false,
     error: '⚠️ Too many requests from this IP. Please try again in 15 minutes.',

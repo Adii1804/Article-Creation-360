@@ -5,7 +5,7 @@
  * No sub-department step
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Select, Card, Typography, Tag, Button } from 'antd';
 import { ReloadOutlined, InfoCircleOutlined } from '@ant-design/icons';
 
@@ -29,6 +29,32 @@ interface SimplifiedCategorySelectorProps {
   selectedCategory?: SimplifiedCategory | null;
 }
 
+const normalizeDivision = (division?: string): string | null => {
+  if (!division) return null;
+  const upper = division.toUpperCase();
+  if (upper === 'MEN') return 'Mens';
+  if (upper === 'KIDS') return 'Kids';
+  if (upper === 'LADIES') return 'Ladies';
+  return division;
+};
+
+const parseSubDivisions = (rawSubDivision: unknown): string[] => {
+  if (Array.isArray(rawSubDivision)) {
+    return rawSubDivision
+      .map((value) => String(value).trim())
+      .filter(Boolean);
+  }
+
+  if (typeof rawSubDivision === 'string') {
+    return rawSubDivision
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+};
+
 export const SimplifiedCategorySelector: React.FC<SimplifiedCategorySelectorProps> = ({
   onCategorySelect,
   selectedCategory
@@ -40,10 +66,36 @@ export const SimplifiedCategorySelector: React.FC<SimplifiedCategorySelectorProp
     selectedCategory?.majorCategory
   );
 
-  const departments = Object.keys(SIMPLIFIED_HIERARCHY);
+  const creatorScope = useMemo(() => {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const isCreator = user.role === 'CREATOR';
+    const restrictedDivision = isCreator ? normalizeDivision(user.division) : null;
+    const allowedSubDivisions = isCreator ? parseSubDivisions(user.subDivision) : [];
+
+    return {
+      isCreator,
+      restrictedDivision,
+      allowedSubDivisions,
+      isSingleScopedCreator: isCreator && !!restrictedDivision && allowedSubDivisions.length === 1,
+    };
+  }, []);
+
+  const departments = creatorScope.restrictedDivision
+    ? [creatorScope.restrictedDivision]
+    : Object.keys(SIMPLIFIED_HIERARCHY);
   const majorCategories = selectedDepartment
-    ? SIMPLIFIED_HIERARCHY[selectedDepartment as keyof typeof SIMPLIFIED_HIERARCHY] || []
+    ? (SIMPLIFIED_HIERARCHY[selectedDepartment as keyof typeof SIMPLIFIED_HIERARCHY] || []).filter((category) => {
+      if (!creatorScope.isCreator) return true;
+      if (creatorScope.allowedSubDivisions.length === 0) return true;
+      return creatorScope.allowedSubDivisions.includes(category);
+    })
     : [];
+
+  useEffect(() => {
+    if (creatorScope.restrictedDivision && !selectedDepartment) {
+      setSelectedDepartment(creatorScope.restrictedDivision);
+    }
+  }, [creatorScope.restrictedDivision, selectedDepartment]);
 
   useEffect(() => {
     if (selectedDepartment && selectedMajorCategory) {
@@ -89,7 +141,7 @@ export const SimplifiedCategorySelector: React.FC<SimplifiedCategorySelectorProp
               </Tag>
             </div>
           </div>
-          {!localStorage.getItem('user') || JSON.parse(localStorage.getItem('user') || '{}').role !== 'CREATOR' || !JSON.parse(localStorage.getItem('user') || '{}').division ? (
+          {!creatorScope.isSingleScopedCreator ? (
             <Button
               icon={<ReloadOutlined />}
               onClick={handleReset}
@@ -128,7 +180,8 @@ export const SimplifiedCategorySelector: React.FC<SimplifiedCategorySelectorProp
             onChange={handleDepartmentChange}
             style={{ width: '100%' }}
             size="large"
-            allowClear
+            allowClear={!creatorScope.restrictedDivision}
+            disabled={!!creatorScope.restrictedDivision}
           >
             {departments.map(dept => (
               <Option key={dept} value={dept}>

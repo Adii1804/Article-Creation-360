@@ -72,6 +72,15 @@ export class FlatExtractionController {
         return String(role || '').trim().toUpperCase();
     }
 
+    private parseSubDivisions(value: unknown): string[] {
+        if (value === null || value === undefined) return [];
+        const tokens = String(value)
+            .split(/[;,|]+/)
+            .map((item) => item.trim())
+            .filter(Boolean);
+        return Array.from(new Set(tokens));
+    }
+
     private extractNumericWeight(input: unknown): string | null {
         if (input === null || input === undefined) return null;
         const text = String(input).trim();
@@ -113,7 +122,12 @@ export class FlatExtractionController {
             } else if (role === 'APPROVER') {
                 // Approvers see extractions within their assigned scope
                 if (division) where.division = division;
-                if (subDivision) where.subDivision = subDivision;
+                const subDivisionList = this.parseSubDivisions(subDivision);
+                if (subDivisionList.length === 1) {
+                    where.subDivision = subDivisionList[0];
+                } else if (subDivisionList.length > 1) {
+                    where.subDivision = { in: subDivisionList };
+                }
             } else if (role === 'CATEGORY_HEAD') {
                 // Category heads see all extractions within their assigned division
                 if (division) where.division = division;
@@ -251,9 +265,13 @@ export class FlatExtractionController {
                     res.status(403).json({ success: false, error: 'Access denied: Division mismatch.' });
                     return;
                 }
-                if (subDivision && existing.subDivision && String(existing.subDivision).toLowerCase() !== String(subDivision).toLowerCase()) {
-                    res.status(403).json({ success: false, error: 'Access denied: Sub-Division mismatch.' });
-                    return;
+                const subDivisionList = this.parseSubDivisions(subDivision).map((item) => item.toLowerCase());
+                if (subDivisionList.length > 0 && existing.subDivision) {
+                    const existingSubDivision = String(existing.subDivision).toLowerCase();
+                    if (!subDivisionList.includes(existingSubDivision)) {
+                        res.status(403).json({ success: false, error: 'Access denied: Sub-Division mismatch.' });
+                        return;
+                    }
                 }
             } else if (role === 'CATEGORY_HEAD') {
                 if (division && existing.division && String(existing.division).toLowerCase() !== String(division).toLowerCase()) {

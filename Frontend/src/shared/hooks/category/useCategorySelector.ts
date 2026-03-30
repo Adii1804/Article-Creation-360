@@ -72,6 +72,23 @@ interface UseCategorySelectorReturn {
   restrictedSubDivision: string | null;
 }
 
+const parseSubDivisions = (rawSubDivision: unknown): string[] => {
+  if (Array.isArray(rawSubDivision)) {
+    return rawSubDivision
+      .map((value) => String(value).trim())
+      .filter(Boolean);
+  }
+
+  if (typeof rawSubDivision === 'string') {
+    return rawSubDivision
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+};
+
 export const useCategorySelector = (): UseCategorySelectorReturn => {
   // Initialize state
   const [state, setState] = useState<CategorySelectorState>({
@@ -300,21 +317,23 @@ export const useCategorySelector = (): UseCategorySelectorReturn => {
   }, [state.error]);
 
   // RBAC: Get user info from localStorage
-  const { userRole, userDivision, userSubDivision } = useMemo(() => {
+  const { userRole, userDivision, userSubDivision, userSubDivisionList } = useMemo(() => {
     const userStr = localStorage.getItem('user');
     if (userStr) {
       try {
         const user = JSON.parse(userStr);
+        const subDivisions = parseSubDivisions(user.subDivision);
         return {
           userRole: user.role || null,
           userDivision: user.division || null,
-          userSubDivision: user.subDivision || null
+          userSubDivision: subDivisions.length === 1 ? subDivisions[0] : null,
+          userSubDivisionList: subDivisions,
         };
       } catch (e) {
         console.error('Failed to parse user for RBAC', e);
       }
     }
-    return { userRole: null, userDivision: null, userSubDivision: null };
+    return { userRole: null, userDivision: null, userSubDivision: null, userSubDivisionList: [] as string[] };
   }, []);
 
   // RBAC: Auto-select division and subdivision for Creators
@@ -365,6 +384,6 @@ export const useCategorySelector = (): UseCategorySelectorReturn => {
     // RBAC
     userRole,
     restrictedDivision: userDivision,
-    restrictedSubDivision: userSubDivision,
+    restrictedSubDivision: userSubDivisionList.length === 1 ? userSubDivision : null,
   };
 };

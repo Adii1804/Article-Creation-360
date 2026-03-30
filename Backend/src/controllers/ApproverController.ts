@@ -34,6 +34,17 @@ export class ApproverController {
         return [normalized];
     }
 
+    private static getSubDivisionVariants(value?: string | null): string[] {
+        if (!value) return [];
+
+        const tokens = String(value)
+            .split(/[;,|]+/)
+            .map((item) => ApproverController.normalizeText(item))
+            .filter(Boolean);
+
+        return Array.from(new Set(tokens));
+    }
+
     private static getCurrentYearString(): string {
         return String(new Date().getFullYear());
     }
@@ -99,9 +110,20 @@ export class ApproverController {
         };
 
         const addSubDivisionScope = (subDivisionValue?: string | null) => {
-            const normalized = ApproverController.normalizeText(subDivisionValue);
-            if (!normalized) return;
-            where.subDivision = { equals: normalized, mode: 'insensitive' };
+            const variants = ApproverController.getSubDivisionVariants(subDivisionValue);
+            if (variants.length === 0) return;
+
+            if (variants.length === 1) {
+                where.subDivision = { equals: variants[0], mode: 'insensitive' };
+                return;
+            }
+
+            where.AND = where.AND || [];
+            where.AND.push({
+                OR: variants.map((variant) => ({
+                    subDivision: { equals: variant, mode: 'insensitive' }
+                }))
+            });
         };
 
         if (role === 'APPROVER') {
@@ -639,12 +661,12 @@ export class ApproverController {
                 const existingDivision = ApproverController.normalizeText(existingItem.division);
                 const existingSubDivision = ApproverController.normalizeText(existingItem.subDivision);
                 const userDivisionVariants = ApproverController.getDivisionVariants(req.user?.division);
-                const userSubDivision = ApproverController.normalizeText(req.user?.subDivision);
+                const userSubDivisionVariants = ApproverController.getSubDivisionVariants(req.user?.subDivision);
 
                 if (userDivisionVariants.length > 0 && !userDivisionVariants.includes(existingDivision)) {
                     return res.status(403).json({ error: 'Access denied: Division mismatch' });
                 }
-                if (role === 'APPROVER' && userSubDivision && existingSubDivision !== userSubDivision) {
+                if (role === 'APPROVER' && userSubDivisionVariants.length > 0 && !userSubDivisionVariants.includes(existingSubDivision)) {
                     return res.status(403).json({ error: 'Access denied: Sub-Division mismatch' });
                 }
             }

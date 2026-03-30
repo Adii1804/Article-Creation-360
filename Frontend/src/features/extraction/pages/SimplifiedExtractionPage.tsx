@@ -37,9 +37,6 @@ const { Title, Text } = Typography;
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 
-const UPPER_ONLY_KEYS = ['neck', 'neck_details', 'collar', 'placket', 'sleeve', 'front_open_style'];
-const LOWER_ONLY_KEYS = ['drawcord', 'father_belt', 'child_belt'];
-
 const KEY_ALIASES: Record<string, string> = {
   neck_details: 'neck_detail',
   colour: 'color',
@@ -106,33 +103,34 @@ const BASE_SIMPLIFIED_SCHEMA: SchemaItem[] = [
   { key: 'child_belt', label: 'Child Belt', type: 'select' }
 ];
 
-const BOTTOM_CODES = ['KB-L', 'KG-L', 'ML', 'MS-L', 'LL'];
-const TOP_CODES = ['KB-U', 'MU', 'MS-U', 'KG-U', 'LU'];
-
-const isBottomCategory = (value?: string) => {
-  if (!value) return false;
-  return BOTTOM_CODES.includes(value);
-};
-
-const isTopCategory = (value?: string) => {
-  if (!value) return false;
-  return TOP_CODES.includes(value);
-};
-
-const isFullBodyCategory = (value?: string) => {
-  if (!value) return false;
-  return !BOTTOM_CODES.includes(value) && !TOP_CODES.includes(value);
-};
-
-const filterSchemaByCategory = (schema: SchemaItem[], majorCategory?: string) => {
-  if (!majorCategory || isFullBodyCategory(majorCategory)) return schema;
-  if (isBottomCategory(majorCategory)) {
-    return schema.filter(item => !UPPER_ONLY_KEYS.includes(item.key));
+const parseSubDivisions = (rawSubDivision: unknown): string[] => {
+  if (Array.isArray(rawSubDivision)) {
+    return rawSubDivision
+      .map((value) => String(value).trim())
+      .filter(Boolean);
   }
-  if (isTopCategory(majorCategory)) {
-    return schema.filter(item => !LOWER_ONLY_KEYS.includes(item.key));
+
+  if (typeof rawSubDivision === 'string') {
+    return rawSubDivision
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
   }
-  return schema;
+
+  return [];
+};
+
+const getLocalUserScope = () => {
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const subDivisions = parseSubDivisions(user.subDivision);
+
+  return {
+    role: user.role,
+    division: user.division,
+    subDivisions,
+    isCreator: user.role === 'CREATOR',
+    isSingleScopedCreator: user.role === 'CREATOR' && !!user.division && subDivisions.length === 1,
+  };
 };
 
 const SimplifiedExtractionPage = () => {
@@ -144,6 +142,7 @@ const SimplifiedExtractionPage = () => {
   const [selectedImage, setSelectedImage] = useState<{ url: string; name?: string } | null>(null);
   const [exportModalVisible, setExportModalVisible] = useState(false);
   const [manualNavigation, setManualNavigation] = useState(false);
+  const creatorScope = getLocalUserScope();
 
   const {
     extractedRows,
@@ -193,7 +192,7 @@ const SimplifiedExtractionPage = () => {
   // Handle category selection
   const handleCategorySelect = useCallback((category: SimplifiedCategory | null) => {
     setSelectedCategory(category);
-    setSimplifiedSchema(filterSchemaByCategory(baseSchema, category?.majorCategory));
+    setSimplifiedSchema(baseSchema);
     if (category) {
       setManualNavigation(false);
       setTimeout(() => setCurrentStep('upload'), 300);
@@ -210,7 +209,7 @@ const SimplifiedExtractionPage = () => {
       if (!userStr) return;
 
       const user = JSON.parse(userStr);
-      if (user.role === 'CREATOR' && user.division && user.subDivision) {
+      if (user.role === 'CREATOR' && user.division) {
         // Normalize division: MEN -> Mens, KIDS -> Kids, LADIES -> Ladies
         let normalizedDept = user.division;
         const upperDept = user.division.toUpperCase();
@@ -218,18 +217,23 @@ const SimplifiedExtractionPage = () => {
         else if (upperDept === 'KIDS') normalizedDept = 'Kids';
         else if (upperDept === 'LADIES') normalizedDept = 'Ladies';
 
+        const allowedSubDivisions = parseSubDivisions(user.subDivision);
+
         // Only auto-select if not already selected to avoid infinite loops/flicker
-        if (!selectedCategory) {
+        if (!selectedCategory && allowedSubDivisions.length === 1) {
           const autoCategory = {
             department: normalizedDept,
-            majorCategory: user.subDivision,
-            displayName: `${normalizedDept} - ${user.subDivision}`
+            majorCategory: allowedSubDivisions[0],
+            displayName: `${normalizedDept} - ${allowedSubDivisions[0]}`
           };
 
           setSelectedCategory(autoCategory);
-          setSimplifiedSchema(filterSchemaByCategory(baseSchema, user.subDivision));
+          setSimplifiedSchema(baseSchema);
           setCurrentStep('upload');
           console.log(`🚀 Auto-selected scope for Creator: ${autoCategory.displayName}`);
+        } else if (!selectedCategory && allowedSubDivisions.length > 1) {
+          // Multi-subdivision creators should choose the correct one manually.
+          setCurrentStep('category');
         }
       }
     } catch (error) {
@@ -290,8 +294,8 @@ const SimplifiedExtractionPage = () => {
   }, []);
 
   useEffect(() => {
-    setSimplifiedSchema(filterSchemaByCategory(baseSchema, selectedCategory?.majorCategory));
-  }, [baseSchema, selectedCategory?.majorCategory]);
+    setSimplifiedSchema(baseSchema);
+  }, [baseSchema]);
 
   // Handle image upload - move to extraction step
   const handleImagesUpload = useCallback(async (fileList: File[]) => {
@@ -315,8 +319,7 @@ const SimplifiedExtractionPage = () => {
   }, [selectedCategory, extractAllPending, simplifiedSchema]);
 
   const handleStartOver = () => {
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    const isRestrictedCreator = user.role === 'CREATOR' && user.division && user.subDivision;
+    const isRestrictedCreator = creatorScope.isSingleScopedCreator;
 
     setManualNavigation(isRestrictedCreator ? false : true);
     clearAll();
@@ -326,8 +329,7 @@ const SimplifiedExtractionPage = () => {
   };
 
   const handleBackToCategory = () => {
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    if (user.role === 'CREATOR' && user.division) return; // Block back for creators
+    if (creatorScope.isSingleScopedCreator) return; // Block back only for single-scope creators
 
     setManualNavigation(true);
     setSelectedCategory(null);
@@ -368,8 +370,7 @@ const SimplifiedExtractionPage = () => {
               size="small"
               current={
                 (() => {
-                  const user = JSON.parse(localStorage.getItem('user') || '{}');
-                  const isRestricted = user.role === 'CREATOR' && user.division;
+                  const isRestricted = creatorScope.isSingleScopedCreator;
                   if (isRestricted) {
                     return currentStep === 'upload' ? 0 : 1;
                   }
@@ -377,8 +378,7 @@ const SimplifiedExtractionPage = () => {
                 })()
               }
               items={(() => {
-                const user = JSON.parse(localStorage.getItem('user') || '{}');
-                const isRestricted = user.role === 'CREATOR' && user.division;
+                const isRestricted = creatorScope.isSingleScopedCreator;
                 const items = [
                   { title: 'Select Category', icon: <AppstoreOutlined /> },
                   { title: 'Upload Images', icon: <UploadOutlined /> },
@@ -431,7 +431,7 @@ const SimplifiedExtractionPage = () => {
                     </Text>
                   </div>
 
-                  {(!localStorage.getItem('user') || JSON.parse(localStorage.getItem('user') || '{}').role !== 'CREATOR' || !JSON.parse(localStorage.getItem('user') || '{}').division) && (
+                  {!creatorScope.isSingleScopedCreator && (
                     <div style={{ marginBottom: 12 }}>
                       <Button
                         onClick={handleBackToCategory}
