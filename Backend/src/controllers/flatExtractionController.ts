@@ -68,6 +68,10 @@ export class FlatExtractionController {
         return String(key || '').trim().toLowerCase();
     }
 
+    private normalizeRole(role: unknown): string {
+        return String(role || '').trim().toUpperCase();
+    }
+
     private extractNumericWeight(input: unknown): string | null {
         if (input === null || input === undefined) return null;
         const text = String(input).trim();
@@ -77,7 +81,8 @@ export class FlatExtractionController {
     }
 
     private isCreatorLike(role: string): boolean {
-        return role === 'CREATOR' || role === 'PO_COMMITTEE';
+        const normalizedRole = this.normalizeRole(role);
+        return normalizedRole === 'CREATOR' || normalizedRole === 'PO_COMMITTEE';
     }
 
     /**
@@ -87,7 +92,7 @@ export class FlatExtractionController {
         try {
             const user = (req as any).user;
             const userId = user?.id;
-            const role = user?.role;
+            const role = this.normalizeRole(user?.role);
             const division = user?.division;
             const subDivision = user?.subDivision;
 
@@ -183,7 +188,7 @@ export class FlatExtractionController {
         try {
             const user = (req as any).user;
             const userId = user?.id;
-            const role = String(user?.role || '');
+            const role = this.normalizeRole(user?.role);
             const division = user?.division;
             const subDivision = user?.subDivision;
             const { jobId } = req.params;

@@ -103,8 +103,9 @@ export default function Products() {
       return null;
     }
   }, [user]);
-  const isAdmin = userData?.role === 'ADMIN';
-  const isCreator = userData?.role === 'CREATOR';
+  const normalizedRole = String(userData?.role || '').toUpperCase();
+  const isAdmin = normalizedRole === 'ADMIN';
+  const isCreatorLike = normalizedRole === 'CREATOR' || normalizedRole === 'PO_COMMITTEE';
   const currentUserId = userData?.id ? String(userData.id) : null;
   const currentUserEmail = userData?.email ? String(userData.email).toLowerCase() : null;
 
@@ -520,7 +521,7 @@ export default function Products() {
         const flatJobs = result?.data?.jobs || [];
 
         // Creator-only frontend safety filter. Other roles follow backend RBAC scope.
-        const userScopedJobs = isCreator
+        const userScopedJobs = isCreatorLike
           ? flatJobs.filter((flat: any) => {
               const flatUserId = flat?.userId ? String(flat.userId) : null;
               const flatUserEmail = flat?.userEmail ? String(flat.userEmail).toLowerCase() : null;
@@ -587,7 +588,7 @@ export default function Products() {
     };
 
     fetchRows();
-  }, [currentUserEmail, currentUserId, isAdmin, isCreator, normalizeStatus, buildDetailsRows]);
+  }, [currentUserEmail, currentUserId, isAdmin, isCreatorLike, normalizeStatus, buildDetailsRows]);
 
   useEffect(() => {
     const fetchMasterAttributes = async () => {

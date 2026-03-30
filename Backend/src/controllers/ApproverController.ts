@@ -38,6 +38,46 @@ export class ApproverController {
         return String(new Date().getFullYear());
     }
 
+    private static getCurrentSeasonConfig(now: Date = new Date()): { seasonName: string; seasonCode: string; yearFull: string; yearShort: string } {
+        const month = now.getMonth() + 1; // 1-12
+        const yearFull = String(now.getFullYear());
+        const yearShort = yearFull.slice(-2);
+
+        if (month >= 1 && month <= 3) {
+            return {
+                seasonName: 'SPRING-SUMMER',
+                seasonCode: `SP${yearShort}`,
+                yearFull,
+                yearShort
+            };
+        }
+
+        if (month >= 4 && month <= 6) {
+            return {
+                seasonName: 'SUMMER',
+                seasonCode: `S${yearShort}`,
+                yearFull,
+                yearShort
+            };
+        }
+
+        if (month >= 7 && month <= 9) {
+            return {
+                seasonName: 'AUTUMN',
+                seasonCode: `A${yearShort}`,
+                yearFull,
+                yearShort
+            };
+        }
+
+        return {
+            seasonName: 'WINTER',
+            seasonCode: `W${yearShort}`,
+            yearFull,
+            yearShort
+        };
+    }
+
     private static applyApproverScope(where: any, user?: Express.Request['user']) {
         const role = String(user?.role || '');
 
@@ -218,6 +258,24 @@ export class ApproverController {
         return result.count;
     }
 
+    private static async backfillMissingSeasonCodes(baseWhere: any): Promise<number> {
+        const { seasonCode } = ApproverController.getCurrentSeasonConfig();
+        const result = await prisma.extractionResultFlat.updateMany({
+            where: {
+                ...baseWhere,
+                OR: [
+                    { season: null },
+                    { season: '' }
+                ]
+            },
+            data: {
+                season: seasonCode
+            }
+        });
+
+        return result.count;
+    }
+
     private static async refreshArticleDescriptions(baseWhere: any): Promise<number> {
         const rows = await prisma.extractionResultFlat.findMany({
             where: {
@@ -391,6 +449,7 @@ export class ApproverController {
             await ApproverController.backfillMissingHsnCodes(where);
             await ApproverController.backfillMissingSegments(where);
             await ApproverController.backfillMissingYears(where);
+            await ApproverController.backfillMissingSeasonCodes(where);
             await ApproverController.refreshArticleDescriptions(where);
 
             const items = await prisma.extractionResultFlat.findMany({
@@ -632,8 +691,12 @@ export class ApproverController {
                 if (segment) data.segment = segment;
             }
 
-            // Year always follows current date year (e.g. 02-Mar-2026 => 2026)
-            data.year = ApproverController.getCurrentYearString();
+            // Year and Season code always follow current date mapping.
+            // Jan-Mar => SPRING-SUMMER (SPyy), Apr-Jun => SUMMER (Syy),
+            // Jul-Sep => AUTUMN (Ayy), Oct-Dec => WINTER (Wyy)
+            const currentSeason = ApproverController.getCurrentSeasonConfig();
+            data.year = currentSeason.yearFull;
+            data.season = currentSeason.seasonCode;
 
             // Article Description: merge ordered attribute values with '-' separator,
             // max 40 chars, starting from yarn1 and skipping empty values.
@@ -692,6 +755,8 @@ export class ApproverController {
             // Ensure selected rows have mcCode persisted before approval.
             await ApproverController.backfillMissingMcCodes(whereClause);
             await ApproverController.backfillMissingHsnCodes(whereClause);
+            await ApproverController.backfillMissingYears(whereClause);
+            await ApproverController.backfillMissingSeasonCodes(whereClause);
             await ApproverController.refreshArticleDescriptions(whereClause);
 
             const result = await prisma.extractionResultFlat.updateMany({
