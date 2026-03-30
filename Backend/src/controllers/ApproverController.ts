@@ -619,7 +619,9 @@ export class ApproverController {
                     embroideryType: true,
                     wash: true,
                     fatherBelt: true,
-                    childBelt: true
+                    childBelt: true,
+                    season: true,
+                    year: true
                 }
             });
 
@@ -691,12 +693,17 @@ export class ApproverController {
                 if (segment) data.segment = segment;
             }
 
-            // Year and Season code always follow current date mapping.
-            // Jan-Mar => SPRING-SUMMER (SPyy), Apr-Jun => SUMMER (Syy),
-            // Jul-Sep => AUTUMN (Ayy), Oct-Dec => WINTER (Wyy)
-            const currentSeason = ApproverController.getCurrentSeasonConfig();
-            data.year = currentSeason.yearFull;
-            data.season = currentSeason.seasonCode;
+            // Do not force-overwrite user-edited season/year on every save.
+            // Only auto-fill defaults when BOTH are absent in payload and missing in DB.
+            if (data.year === undefined && data.season === undefined) {
+                const currentSeason = ApproverController.getCurrentSeasonConfig();
+                if (!existingItem.year || String(existingItem.year).trim() === '') {
+                    data.year = currentSeason.yearFull;
+                }
+                if (!existingItem.season || String(existingItem.season).trim() === '') {
+                    data.season = currentSeason.seasonCode;
+                }
+            }
 
             // Article Description: merge ordered attribute values with '-' separator,
             // max 40 chars, starting from yarn1 and skipping empty values.
