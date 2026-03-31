@@ -34,6 +34,9 @@ const isProduction = process.env.NODE_ENV === 'production';
 const RATE_LIMIT_WINDOW_MS = parseInt(process.env.RATE_LIMIT_WINDOW_MS || `${15 * 60 * 1000}`, 10);
 const RATE_LIMIT_MAX = parseInt(process.env.RATE_LIMIT_MAX || '500', 10);
 
+// Trust proxy - required for Cloudflare, load balancers, and rate limiting
+app.set('trust proxy', 1);
+
 // Rate limiting middleware
 const limiter = rateLimit({
   windowMs: RATE_LIMIT_WINDOW_MS,
