@@ -5,6 +5,9 @@ import { calculateMrpFromRate, parseNumericValue } from '../utils/mrpCalculator'
 
 export class FlatExtractionController {
     private attributeKeyToFieldMap: Record<string, string> = {
+        division: 'division',
+        sub_division: 'subDivision',
+        subdivision: 'subDivision',
         major_category: 'majorCategory',
         majorcategory: 'majorCategory',
         vendor_name: 'vendorName',
@@ -69,7 +72,21 @@ export class FlatExtractionController {
         child_belt: 'childBelt',
         child_belt_detail: 'childBelt',
         reference_article_number: 'referenceArticleNumber',
-        reference_article_description: 'referenceArticleDescription'
+        reference_article_description: 'referenceArticleDescription',
+        mrp: 'mrp',
+        mc_code: 'mcCode',
+        mccode: 'mcCode',
+        segment: 'segment',
+        season: 'season',
+        hsn_tax_code: 'hsnTaxCode',
+        hsntaxcode: 'hsnTaxCode',
+        article_description: 'articleDescription',
+        articledescription: 'articleDescription',
+        fashion_grid: 'fashionGrid',
+        fashiongrid: 'fashionGrid',
+        year: 'year',
+        article_type: 'articleType',
+        articletype: 'articleType'
     };
 
     private normalizeAttributeKey(key: string): string {

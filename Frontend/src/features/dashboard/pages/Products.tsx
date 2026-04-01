@@ -47,6 +47,8 @@ type EditableAttributeDefinition = {
 };
 
 const EDITABLE_ATTRIBUTE_DEFINITIONS: EditableAttributeDefinition[] = [
+  { key: 'division', label: 'Division', field: 'division' },
+  { key: 'sub_division', label: 'Sub-Division', field: 'subDivision' },
   { key: 'major_category', label: 'Major Category', field: 'majorCategory' },
   { key: 'vendor_name', label: 'Vendor Name', field: 'vendorName' },
   { key: 'design_number', label: 'Design Number', field: 'designNumber' },
@@ -94,6 +96,16 @@ const EDITABLE_ATTRIBUTE_DEFINITIONS: EditableAttributeDefinition[] = [
   { key: 'child_belt', label: 'Child Belt', field: 'childBelt' },
   { key: 'reference_article_number', label: 'Reference Article Number', field: 'referenceArticleNumber' },
   { key: 'reference_article_description', label: 'Reference Article Description', field: 'referenceArticleDescription' },
+  { key: 'vendor_code', label: 'Vendor Code', field: 'vendorCode' },
+  { key: 'mrp', label: 'MRP', field: 'mrp' },
+  { key: 'mc_code', label: 'MC Code', field: 'mcCode' },
+  { key: 'segment', label: 'Segment', field: 'segment' },
+  { key: 'season', label: 'Season', field: 'season' },
+  { key: 'hsn_tax_code', label: 'HSN Tax Code', field: 'hsnTaxCode' },
+  { key: 'article_description', label: 'Article Description', field: 'articleDescription' },
+  { key: 'fashion_grid', label: 'Fashion Grid', field: 'fashionGrid' },
+  { key: 'year', label: 'Year', field: 'year' },
+  { key: 'article_type', label: 'Article Type', field: 'articleType' },
 ];
 
 export default function Products() {
@@ -202,7 +214,6 @@ export default function Products() {
         label: item.label,
         value: flatData[item.field]
       })),
-      { key: 'division', label: 'Division', value: flatData.division },
     ];
 
     return attributeMapping
