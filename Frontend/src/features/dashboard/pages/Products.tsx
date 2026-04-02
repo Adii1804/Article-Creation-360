@@ -153,22 +153,27 @@ export default function Products() {
     const sapSyncStatus = String(flat?.sapSyncStatus || '').toUpperCase();
     const extractionStatus = normalizeStatus(flat?.extractionStatus);
 
-    if (sapSyncStatus === 'FAILED' || approvalStatus === 'REJECTED') return 'FAILED';
-    if (approvalStatus === 'APPROVED' && (sapSyncStatus === 'SYNCED' || sapSyncStatus === 'NOT_SYNCED')) {
-      return 'COMPLETED';
-    }
+    // Rejection always shows as failed
+    if (approvalStatus === 'REJECTED') return 'FAILED';
+    // If approved, always show as completed regardless of SAP sync status
+    if (approvalStatus === 'APPROVED') return 'COMPLETED';
+    // Only show SAP failure for non-approved articles
+    if (sapSyncStatus === 'FAILED') return 'FAILED';
 
     return extractionStatus;
   }, [normalizeStatus]);
 
   const canEditRow = useCallback((row: ProductRow) => {
+    // Admin can always edit
+    if (isAdmin) return true;
+
     const approvalStatus = String(row.approvalStatus || row.flatData?.approvalStatus || '').toUpperCase();
     const sapSyncStatus = String(row.sapSyncStatus || row.flatData?.sapSyncStatus || '').toUpperCase();
 
     if (approvalStatus !== 'APPROVED') return true;
 
     return sapSyncStatus !== 'SYNCED';
-  }, []);
+  }, [isAdmin]);
 
   const getMajorCategory = useCallback((results?: ProductRow['results']) => {
     if (!results || results.length === 0) return null;

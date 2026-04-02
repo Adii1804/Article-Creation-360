@@ -152,8 +152,9 @@ export default function ApproverDashboard() {
             if (user.subDivision) {
                 const userSubDivs = getSubDivisionVariants(user.subDivision);
                 if (userSubDivs.length > 0) {
+                    // Also show articles with null/empty subDivision (not yet categorised)
                     result = result.filter(item =>
-                        userSubDivs.includes(normalizeText(item.subDivision))
+                        !item.subDivision || userSubDivs.includes(normalizeText(item.subDivision))
                     );
                 }
             }

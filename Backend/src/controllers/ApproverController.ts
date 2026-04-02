@@ -113,16 +113,17 @@ export class ApproverController {
             const variants = ApproverController.getSubDivisionVariants(subDivisionValue);
             if (variants.length === 0) return;
 
-            if (variants.length === 1) {
-                where.subDivision = { equals: variants[0], mode: 'insensitive' };
-                return;
-            }
-
+            // Include articles with matching subDivision OR with null/empty subDivision
+            // (articles extracted without category assignment should still be visible)
             where.AND = where.AND || [];
             where.AND.push({
-                OR: variants.map((variant) => ({
-                    subDivision: { equals: variant, mode: 'insensitive' }
-                }))
+                OR: [
+                    ...variants.map((variant) => ({
+                        subDivision: { equals: variant, mode: 'insensitive' }
+                    })),
+                    { subDivision: null },
+                    { subDivision: '' }
+                ]
             });
         };
 

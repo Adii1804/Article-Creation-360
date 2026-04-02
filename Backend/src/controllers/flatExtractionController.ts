@@ -278,7 +278,8 @@ export class FlatExtractionController {
 
             const isSapLocked = existing.approvalStatus === 'APPROVED' && existing.sapSyncStatus === 'SYNCED';
 
-            if (isSapLocked) {
+            // Admin can override the SAP lock
+            if (isSapLocked && role !== 'ADMIN') {
                 res.status(403).json({ success: false, error: 'Cannot update an approved item.' });
                 return;
             }

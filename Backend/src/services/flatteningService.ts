@@ -135,7 +135,6 @@ export class FlatteningService {
             yarn2: resultsMap.get('yarn_02'),
             fabricMainMvgr: resultsMap.get('fabric_main_mvgr'),
             weave: resultsMap.get('weave'),
-            weaveFullForm: null, // weave has no lookup table (free text)
             macroMvgr: resultsMap.get('macro_mvgr'),
             macroMvgrFullForm: mvgrMappingService.getMacroMvgrFullForm(resultsMap.get('macro_mvgr')),
             mainMvgr: resultsMap.get('main_mvgr'),
