@@ -6,32 +6,45 @@ const DIVISIONS = {
     MEN: {
         description: 'Men\'s Fashion',
         subDivisions: [
-            { code: 'ML', name: 'MEN LOWER' },
             { code: 'MU', name: 'MEN UPPER' },
-            { code: 'MS-L', name: 'MEN SPORTS LOWER' },
             { code: 'MS-U', name: 'MEN SPORTS UPPER' },
-            { code: 'MS-IW', name: 'MEN INNERWEAR' }
+            { code: 'MS-L', name: 'MEN SPORTS LOWER' },
+            { code: 'MW', name: 'MW' },
+            { code: 'MO', name: 'MO' },
+            { code: 'MS-IW', name: 'MEN INNERWEAR' },
+            { code: 'ML', name: 'MEN LOWER' }
         ]
     },
     LADIES: {
         description: 'Ladies Fashion',
         subDivisions: [
-            { code: 'LK&L', name: 'LADIES KURTI AND LEGGINGS' },
-            { code: 'LL', name: 'LADIES LOWER' },
             { code: 'LU', name: 'LADIES UPPER' },
-            { code: 'LN&L', name: 'LADIES NIGHTY AND LINGERIE' }
+            { code: 'LL', name: 'LADIES LOWER' },
+            { code: 'LK&L', name: 'LADIES KURTI AND LEGGINGS' },
+            { code: 'LN&L', name: 'LADIES NIGHTY AND LINGERIE' },
+            { code: 'LW', name: 'LW' }
         ]
     },
     KIDS: {
         description: 'Kids Fashion',
         subDivisions: [
-            { code: 'KB-L', name: 'KID BOYS LOWER' },
-            { code: 'KG-L', name: 'KID GIRLS LOWER' },
             { code: 'KB-SETS', name: 'KID BOYS SETS' },
+            { code: 'KB-L', name: 'KID BOYS LOWER' },
             { code: 'KB-U', name: 'KID BOYS UPPER' },
+            { code: 'KBW-U', name: 'KBW-U' },
+            { code: 'KBW-L', name: 'KBW-L' },
+            { code: 'KBW-SETS', name: 'KBW-SETS' },
+            { code: 'KG-L', name: 'KID GIRLS LOWER' },
             { code: 'KG-U', name: 'KID GIRLS UPPER' },
+            { code: 'KGW-U', name: 'KGW-U' },
+            { code: 'KGW-L', name: 'KGW-L' },
             { code: 'IB', name: 'INFANT BOYS' },
-            { code: 'IG', name: 'INFANT GIRLS' }
+            { code: 'IG', name: 'INFANT GIRLS' },
+            { code: 'KI', name: 'KI' },
+            { code: 'KIW', name: 'KIW' },
+            { code: 'KB', name: 'KB' },
+            { code: 'KBW', name: 'KBW' },
+            { code: 'KG', name: 'KG' }
         ]
     }
 };
