@@ -1,5 +1,5 @@
 
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, CopyObjectCommand } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID } from 'crypto';
@@ -265,6 +265,16 @@ export class StorageService {
         }
     }
 
+    /**
+     * Extracts the R2 object key from a public URL, if the URL matches our known public base.
+     */
+    private extractKeyFromPublicUrl(url: string): string | null {
+        if (!this.publicUrlBase) return null;
+        const base = this.publicUrlBase.replace(/\/$/, '');
+        if (!url.startsWith(base + '/')) return null;
+        return url.slice(base.length + 1);
+    }
+
     async uploadApprovedImageFromSourceUrl(sourceImageUrl: string, articleNumber: string): Promise<UploadResult> {
         if (!sourceImageUrl) {
             throw new Error('Source image URL is required');
@@ -273,7 +283,43 @@ export class StorageService {
             throw new Error('Article number is required for approved image upload');
         }
 
-        const response = await fetch(sourceImageUrl);
+        const safeArticleNumber = this.sanitizeArticleNumber(articleNumber);
+
+        // Preferred path: direct S3-to-S3 copy — no HTTP download, no network fetch needed.
+        // This is reliable even when the public URL is temporarily unreachable.
+        const sourceKey = this.extractKeyFromPublicUrl(sourceImageUrl);
+        if (sourceKey) {
+            const extension = this.extensionFromPath(sourceKey) || 'jpg';
+            const destKey = `${safeArticleNumber}.${extension}`;
+            try {
+                console.log(`📦 Direct S3 copy: ${this.bucket}/${sourceKey} → ${this.approvedBucket}/${destKey}`);
+                await this.approvedS3Client.send(new CopyObjectCommand({
+                    Bucket: this.approvedBucket,
+                    CopySource: `${this.bucket}/${sourceKey}`,
+                    Key: destKey
+                }));
+                console.log(`✅ Direct S3 copy succeeded: ${destKey}`);
+
+                let url: string;
+                if (this.approvedPublicUrlBase && !this.isR2ApiStyleBaseUrl(this.approvedPublicUrlBase)) {
+                    url = this.buildPublicUrl(this.approvedPublicUrlBase, this.approvedBucket, destKey);
+                } else {
+                    const command = new GetObjectCommand({ Bucket: this.approvedBucket, Key: destKey });
+                    url = await getSignedUrl(this.approvedS3Client, command, { expiresIn: 604800 });
+                }
+                return { url, path: destKey, key: destKey, uuid: safeArticleNumber };
+            } catch (copyError: any) {
+                console.warn(`⚠️ Direct S3 copy failed (${copyError?.message}), falling back to HTTP fetch...`);
+            }
+        }
+
+        // Fallback: download via HTTP then re-upload
+        let response: Response;
+        try {
+            response = await fetch(sourceImageUrl);
+        } catch (fetchError: any) {
+            throw new Error(`Failed to fetch source image (network error): ${fetchError?.message || fetchError}`);
+        }
         if (!response.ok) {
             throw new Error(`Failed to fetch source image: HTTP ${response.status}`);
         }
@@ -285,8 +331,7 @@ export class StorageService {
             || 'jpg'
         );
 
-        const safeArticleNumber = this.sanitizeArticleNumber(articleNumber);
-        const key = `${safeArticleNumber}.${extension}`; // root-level path, no folder
+        const key = `${safeArticleNumber}.${extension}`;
         const fileBuffer = Buffer.from(await response.arrayBuffer());
 
         try {
@@ -301,8 +346,6 @@ export class StorageService {
                 );
                 console.log(`✅ Approved image uploaded to ${this.approvedBucket}: ${key}`);
             } catch (primaryError: any) {
-                // Retry with primary credentials on any auth/permission error
-                // (approved-bucket API key may not have write access)
                 if (!this.isAuthError(primaryError) || this.approvedS3Client === this.s3Client) {
                     throw primaryError;
                 }
@@ -330,12 +373,7 @@ export class StorageService {
                 url = await getSignedUrl(this.approvedS3Client, command, { expiresIn: 604800 });
             }
 
-            return {
-                url,
-                path: key,
-                key,
-                uuid: safeArticleNumber
-            };
+            return { url, path: key, key, uuid: safeArticleNumber };
         } catch (error) {
             console.error('❌ Approved image upload failed:', error);
             throw new Error('Failed to upload approved image to storage');

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, Button, Typography, message, Modal, Form, Input, Select, Row, Col, Tabs } from 'antd';
 import { CheckCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 import { ApproverTable } from '../components/ApproverTable';
@@ -90,30 +90,8 @@ export default function ApproverDashboard() {
         setLoading(true);
         try {
             const token = localStorage.getItem('authToken');
-            const params = new URLSearchParams();
-
-            if (statusFilter.length > 0 && !statusFilter.includes('ALL')) {
-                params.append('status', statusFilter.join(','));
-            } else if (statusFilter.includes('ALL')) {
-                params.append('status', 'ALL');
-            }
-
-            if (searchText) {
-                params.append('search', searchText);
-            }
-
-            if (divisionFilter !== 'ALL') {
-                params.append('division', divisionFilter);
-            }
-
-            if (subDivisionFilter !== 'ALL') {
-                params.append('subDivision', subDivisionFilter);
-            }
-
-            // Fetch all records — front-end pagination handles display
-            params.append('limit', '10000');
-
-            const response = await fetch(`${APP_CONFIG.api.baseURL}/approver/items?${params.toString()}`, {
+            // Fetch all RBAC-scoped records once — filtering is done client-side
+            const response = await fetch(`${APP_CONFIG.api.baseURL}/approver/items?limit=10000&status=ALL`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -132,12 +110,72 @@ export default function ApproverDashboard() {
         } finally {
             setLoading(false);
         }
-    }, [statusFilter, searchText, divisionFilter, subDivisionFilter]);
+    }, []); // No filter dependencies — filters are applied client-side
+
+    // Client-side filtering — instant, no API calls, no race conditions
+    const filteredItems = useMemo(() => {
+        let result = items;
+
+        // RBAC enforcement: APPROVER sees only their assigned division + sub-division
+        if (user?.role === 'APPROVER') {
+            if (user.division) {
+                const userDiv = user.division.toUpperCase();
+                result = result.filter(item => item.division?.toUpperCase() === userDiv);
+            }
+            if (user.subDivision) {
+                const userSubDivs = String(user.subDivision)
+                    .split(/[;,|]+/)
+                    .map((s: string) => s.trim().toUpperCase())
+                    .filter(Boolean);
+                if (userSubDivs.length > 0) {
+                    result = result.filter(item =>
+                        userSubDivs.includes(item.subDivision?.toUpperCase() || '')
+                    );
+                }
+            }
+        }
+
+        // RBAC enforcement: CATEGORY_HEAD sees only their assigned division
+        if (user?.role === 'CATEGORY_HEAD' && user.division) {
+            const userDiv = user.division.toUpperCase();
+            result = result.filter(item => item.division?.toUpperCase() === userDiv);
+        }
+
+        // Status filter (user-controlled)
+        if (!statusFilter.includes('ALL') && statusFilter.length > 0) {
+            result = result.filter(item => statusFilter.includes(item.approvalStatus || ''));
+        }
+
+        // Division filter (ADMIN only — non-admins don't see this dropdown)
+        if (divisionFilter !== 'ALL') {
+            result = result.filter(item =>
+                item.division?.toUpperCase() === divisionFilter.toUpperCase()
+            );
+        }
+
+        // Sub-division filter (ADMIN only)
+        if (subDivisionFilter !== 'ALL') {
+            result = result.filter(item => item.subDivision === subDivisionFilter);
+        }
+
+        // Search filter
+        if (searchText) {
+            const q = searchText.toLowerCase();
+            result = result.filter(item =>
+                item.articleNumber?.toLowerCase().includes(q) ||
+                item.vendorName?.toLowerCase().includes(q) ||
+                item.designNumber?.toLowerCase().includes(q) ||
+                item.pptNumber?.toLowerCase().includes(q)
+            );
+        }
+
+        return result;
+    }, [items, user, statusFilter, divisionFilter, subDivisionFilter, searchText]);
 
     useEffect(() => {
         fetchAttributes();
         fetchItems();
-    }, [fetchItems, fetchAttributes]);
+    }, []); // Intentionally run once on mount — filters are applied client-side
 
     const handleApprove = async () => {
         if (selectedRowKeys.length === 0) return;
@@ -332,9 +370,9 @@ export default function ApproverDashboard() {
     // Derive subDivision options based on current modal division
     const getSubDivisionOptions = (division: string | undefined): string[] => {
         if (!division) return [];
-        if (division.match(/MEN/i)) return SIMPLIFIED_HIERARCHY['Mens'];
         if (division.match(/LADIES|WOMEN/i)) return SIMPLIFIED_HIERARCHY['Ladies'];
         if (division.match(/KIDS/i)) return SIMPLIFIED_HIERARCHY['Kids'];
+        if (division.match(/MEN/i)) return SIMPLIFIED_HIERARCHY['Mens'];
         return [];
     };
 
@@ -533,7 +571,8 @@ export default function ApproverDashboard() {
                         <Col xs={24} sm={8} md={6}>
                             <Input.Search
                                 placeholder="Search Article, Vendor, Design #"
-                                onSearch={val => { setSearchText(val); }}
+                                onSearch={val => setSearchText(val)}
+                                onChange={e => setSearchText(e.target.value)}
                                 allowClear
                             />
                         </Col>
@@ -562,7 +601,10 @@ export default function ApproverDashboard() {
                                         style={{ width: '100%' }}
                                         placeholder="Division"
                                         value={divisionFilter}
-                                        onChange={setDivisionFilter}
+                                        onChange={(val) => {
+                                            setDivisionFilter(val);
+                                            setSubDivisionFilter('ALL'); // reset sub-div when division changes
+                                        }}
                                     >
                                         <Option value="ALL">All Divisions</Option>
                                         <Option value="MEN">MEN</Option>
@@ -578,9 +620,16 @@ export default function ApproverDashboard() {
                                         onChange={setSubDivisionFilter}
                                     >
                                         <Option value="ALL">All Sub-Divs</Option>
-                                        {/* Ideally these should be dynamic based on Division */}
-                                        <Option value="UPPER">UPPER</Option>
-                                        <Option value="LOWER">LOWER</Option>
+                                        {getSubDivisionOptions(divisionFilter === 'ALL' ? undefined : divisionFilter).length > 0
+                                            ? getSubDivisionOptions(divisionFilter === 'ALL' ? undefined : divisionFilter).map(sd => (
+                                                <Option key={sd} value={sd}>{sd}</Option>
+                                            ))
+                                            : <>
+                                                {SIMPLIFIED_HIERARCHY['Mens'].map(sd => <Option key={sd} value={sd}>{sd}</Option>)}
+                                                {SIMPLIFIED_HIERARCHY['Ladies'].map(sd => <Option key={sd} value={sd}>{sd}</Option>)}
+                                                {SIMPLIFIED_HIERARCHY['Kids'].map(sd => <Option key={sd} value={sd}>{sd}</Option>)}
+                                            </>
+                                        }
                                     </Select>
                                 </Col>
                             </>
@@ -610,7 +659,7 @@ export default function ApproverDashboard() {
             >
                 <div style={{ flex: 1, minHeight: 0 }}>
                     <ApproverTable
-                        items={items}
+                        items={filteredItems}
                         loading={loading}
                         selectedRowKeys={selectedRowKeys}
                         onSelectionChange={setSelectedRowKeys}

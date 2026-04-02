@@ -660,9 +660,9 @@ export const ApproverTable: React.FC<ApproverTableProps> = ({
                     inputType = 'select';
                     const divisionName = record.division;
                     let hierKey = '';
-                    if (divisionName?.match(/MEN/i)) hierKey = 'Mens';
                     if (divisionName?.match(/LADIES|WOMEN/i)) hierKey = 'Ladies';
-                    if (divisionName?.match(/KIDS/i)) hierKey = 'Kids';
+                    else if (divisionName?.match(/KIDS/i)) hierKey = 'Kids';
+                    else if (divisionName?.match(/MEN/i)) hierKey = 'Mens';
 
                     const subDivs = SIMPLIFIED_HIERARCHY[hierKey as keyof typeof SIMPLIFIED_HIERARCHY] || [];
                     options = subDivs.map((sd: string) => ({ label: sd, value: sd }));
