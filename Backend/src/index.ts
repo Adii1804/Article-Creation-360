@@ -27,6 +27,7 @@ import { auditLog, flushAuditLogsOnShutdown } from './middleware/auditLogger';
 import { checkApiConfiguration } from './services/baseApi';
 import { cacheService } from './services/cacheService';
 import { mvgrMappingService } from './services/mvgrMappingService';
+import { ApproverController } from './controllers/ApproverController';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '5000', 10);
@@ -227,6 +228,9 @@ app.use(errorHandler);
     } else {
       console.log('✅ API configuration looks good!');
     }
+
+    // Run backfills once in the background — does not block startup
+    ApproverController.runStartupBackfills();
 
     // Start server
     const server = app.listen(PORT, '0.0.0.0', () => {

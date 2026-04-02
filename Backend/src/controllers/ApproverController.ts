@@ -185,22 +185,23 @@ export class ApproverController {
         const rows = await prisma.extractionResultFlat.findMany({
             where: {
                 ...baseWhere,
-                mcCode: { not: null }
+                mcCode: { not: null },
+                hsnTaxCode: null
             },
             select: {
                 id: true,
-                mcCode: true,
-                hsnTaxCode: true
+                mcCode: true
             },
             take: 5000
         });
+
+        if (rows.length === 0) return 0;
 
         const idsByHsn = new Map<string, string[]>();
 
         for (const row of rows) {
             const mappedHsn = getHsnCodeByMcCode(row.mcCode);
             if (!mappedHsn) continue;
-            if (row.hsnTaxCode === mappedHsn) continue;
 
             const ids = idsByHsn.get(mappedHsn) || [];
             ids.push(row.id);
@@ -389,6 +390,24 @@ export class ApproverController {
         return results.reduce((sum, result) => sum + result.count, 0);
     }
 
+    // Run once at server startup to backfill missing computed fields across all records.
+    static runStartupBackfills(): void {
+        const run = async () => {
+            try {
+                await ApproverController.backfillMissingMcCodes({});
+                await ApproverController.backfillMissingHsnCodes({});
+                await ApproverController.backfillMissingSegments({});
+                await ApproverController.backfillMissingYears({});
+                await ApproverController.backfillMissingSeasonCodes({});
+                await ApproverController.refreshArticleDescriptions({});
+                console.log('✅ Startup backfills completed');
+            } catch (err: any) {
+                console.warn('⚠️ Startup backfills failed (non-critical):', err?.message);
+            }
+        };
+        run();
+    }
+
     // Get items for approver dashboard
     // Filters: approvalStatus (default: PENDING), division, date range, search
     static async getItems(req: Request, res: Response) {
@@ -464,15 +483,6 @@ export class ApproverController {
             }
 
             const skip = (Number(page) - 1) * Number(limit);
-
-            // Persist MC code in DB once for rows missing mcCode, so frontend doesn't
-            // need to repeatedly map from JSON for the same records.
-            await ApproverController.backfillMissingMcCodes(where);
-            await ApproverController.backfillMissingHsnCodes(where);
-            await ApproverController.backfillMissingSegments(where);
-            await ApproverController.backfillMissingYears(where);
-            await ApproverController.backfillMissingSeasonCodes(where);
-            await ApproverController.refreshArticleDescriptions(where);
 
             const items = await prisma.extractionResultFlat.findMany({
                 where,
