@@ -6,6 +6,7 @@ import type { ApproverItem, MasterAttribute } from '../components/ApproverTable'
 import { APP_CONFIG } from '../../../constants/app/config';
 import { SIMPLIFIED_HIERARCHY } from '../../extraction/components/SimplifiedCategorySelector';
 import { getMcCodeByMajorCategory } from '../../../data/majorCategoryMcCodeMap';
+import { formatDivisionLabel } from '../../../shared/utils/ui/formatters';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -37,6 +38,28 @@ const calculateMrpFromRate = (rateOrCost: unknown): number | null => {
     const priceWithMargin = rate + (rate * 0.47);
     return Math.ceil(priceWithMargin / 25) * 25;
 };
+
+const normalizeText = (value?: string | null): string =>
+    String(value || '').trim().toUpperCase();
+
+const getDivisionVariants = (value?: string | null): string[] => {
+    const normalized = normalizeText(value);
+    if (!normalized) return [];
+
+    if (normalized === 'MEN' || normalized === 'MENS') return ['MEN', 'MENS'];
+    if (normalized === 'LADIES' || normalized === 'WOMEN' || normalized === 'WOMAN') return ['LADIES', 'WOMEN'];
+    if (normalized === 'KID' || normalized === 'KIDS') return ['KID', 'KIDS'];
+
+    return [normalized];
+};
+
+const getSubDivisionVariants = (value?: string | null): string[] =>
+    Array.from(new Set(
+        String(value || '')
+            .split(/[;,|]+/)
+            .map((item) => normalizeText(item))
+            .filter(Boolean)
+    ));
 
 export default function ApproverDashboard() {
     const [items, setItems] = useState<ApproverItem[]>([]);
@@ -119,17 +142,18 @@ export default function ApproverDashboard() {
         // RBAC enforcement: APPROVER sees only their assigned division + sub-division
         if (user?.role === 'APPROVER') {
             if (user.division) {
-                const userDiv = user.division.toUpperCase();
-                result = result.filter(item => item.division?.toUpperCase() === userDiv);
+                const userDivisions = getDivisionVariants(user.division);
+                if (userDivisions.length > 0) {
+                    result = result.filter(item =>
+                        userDivisions.includes(normalizeText(item.division))
+                    );
+                }
             }
             if (user.subDivision) {
-                const userSubDivs = String(user.subDivision)
-                    .split(/[;,|]+/)
-                    .map((s: string) => s.trim().toUpperCase())
-                    .filter(Boolean);
+                const userSubDivs = getSubDivisionVariants(user.subDivision);
                 if (userSubDivs.length > 0) {
                     result = result.filter(item =>
-                        userSubDivs.includes(item.subDivision?.toUpperCase() || '')
+                        userSubDivs.includes(normalizeText(item.subDivision))
                     );
                 }
             }
@@ -137,8 +161,12 @@ export default function ApproverDashboard() {
 
         // RBAC enforcement: CATEGORY_HEAD sees only their assigned division
         if (user?.role === 'CATEGORY_HEAD' && user.division) {
-            const userDiv = user.division.toUpperCase();
-            result = result.filter(item => item.division?.toUpperCase() === userDiv);
+            const userDivisions = getDivisionVariants(user.division);
+            if (userDivisions.length > 0) {
+                result = result.filter(item =>
+                    userDivisions.includes(normalizeText(item.division))
+                );
+            }
         }
 
         // Status filter (user-controlled)
@@ -148,14 +176,17 @@ export default function ApproverDashboard() {
 
         // Division filter (ADMIN only — non-admins don't see this dropdown)
         if (divisionFilter !== 'ALL') {
+            const divisionVariants = getDivisionVariants(divisionFilter);
             result = result.filter(item =>
-                item.division?.toUpperCase() === divisionFilter.toUpperCase()
+                divisionVariants.includes(normalizeText(item.division))
             );
         }
 
         // Sub-division filter (ADMIN only)
         if (subDivisionFilter !== 'ALL') {
-            result = result.filter(item => item.subDivision === subDivisionFilter);
+            result = result.filter(item =>
+                normalizeText(item.subDivision) === normalizeText(subDivisionFilter)
+            );
         }
 
         // Search filter
@@ -372,7 +403,7 @@ export default function ApproverDashboard() {
         if (!division) return [];
         if (division.match(/LADIES|WOMEN/i)) return SIMPLIFIED_HIERARCHY['Ladies'];
         if (division.match(/KIDS/i)) return SIMPLIFIED_HIERARCHY['Kids'];
-        if (division.match(/MEN/i)) return SIMPLIFIED_HIERARCHY['Mens'];
+        if (division.match(/MEN/i)) return SIMPLIFIED_HIERARCHY['MENS'];
         return [];
     };
 
@@ -404,7 +435,7 @@ export default function ApproverDashboard() {
                             form.setFieldsValue({ subDivision: undefined });
                         }}
                     >
-                        <Option value="MEN">MEN</Option>
+                        <Option value="MEN">MENS</Option>
                         <Option value="LADIES">LADIES</Option>
                         <Option value="KIDS">KIDS</Option>
                     </Select>
@@ -561,7 +592,7 @@ export default function ApproverDashboard() {
                         <Title level={2} style={{ margin: 0 }}>Approver Dashboard</Title>
                         <Text type="secondary">
                             Review, edit, and approve extracted articles for SAP creation.
-                            {user?.division && <Text type="success" style={{ marginLeft: 8 }}>Scope: {user.division} {user.subDivision ? `(${user.subDivision})` : ''}</Text>}
+                            {user?.division && <Text type="success" style={{ marginLeft: 8 }}>Scope: {formatDivisionLabel(user.division)} {user.subDivision ? `(${user.subDivision})` : ''}</Text>}
                         </Text>
                     </div>
                 </div>
@@ -607,7 +638,7 @@ export default function ApproverDashboard() {
                                         }}
                                     >
                                         <Option value="ALL">All Divisions</Option>
-                                        <Option value="MEN">MEN</Option>
+                                        <Option value="MEN">MENS</Option>
                                         <Option value="LADIES">LADIES</Option>
                                         <Option value="KIDS">KIDS</Option>
                                     </Select>
@@ -625,7 +656,7 @@ export default function ApproverDashboard() {
                                                 <Option key={sd} value={sd}>{sd}</Option>
                                             ))
                                             : <>
-                                                {SIMPLIFIED_HIERARCHY['Mens'].map(sd => <Option key={sd} value={sd}>{sd}</Option>)}
+                                                {SIMPLIFIED_HIERARCHY['MENS'].map(sd => <Option key={sd} value={sd}>{sd}</Option>)}
                                                 {SIMPLIFIED_HIERARCHY['Ladies'].map(sd => <Option key={sd} value={sd}>{sd}</Option>)}
                                                 {SIMPLIFIED_HIERARCHY['Kids'].map(sd => <Option key={sd} value={sd}>{sd}</Option>)}
                                             </>

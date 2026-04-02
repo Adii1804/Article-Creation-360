@@ -101,7 +101,7 @@ export const CategorySelector: React.FC<CategorySelectorProps> = ({
             1. Choose Division
           </Text>
           <Select
-            placeholder="Select division (Kids, Ladies, Mens)"
+            placeholder="Select division (Kids, Ladies, MENS)"
             value={selectedDepartment}
             onChange={handleDepartmentChange}
             style={{ width: '100%' }}

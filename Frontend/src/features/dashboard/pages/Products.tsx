@@ -11,6 +11,7 @@ import {
   mapMasterAttributes
 } from '../../../shared/utils/export/extractionExport';
 import { getImageUrl } from '../../../shared/utils/common/helpers';
+import { formatDivisionLabel } from '../../../shared/utils/ui/formatters';
 import './Products.css';
 
 const { Title, Text } = Typography;
@@ -236,7 +237,7 @@ export default function Products() {
       ...EDITABLE_ATTRIBUTE_DEFINITIONS.map((item) => ({
         key: item.key,
         label: item.label,
-        value: flatData[item.field]
+        value: item.field === 'division' ? formatDivisionLabel(flatData[item.field]) : flatData[item.field]
       })),
     ];
 

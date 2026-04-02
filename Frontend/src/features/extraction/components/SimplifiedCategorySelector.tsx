@@ -15,7 +15,7 @@ const { Option } = Select;
 export const SIMPLIFIED_HIERARCHY = {
   'Kids': ['KB-L', 'KG-L', 'KB-SETS', 'KB-U', 'KG-U', 'IB', 'IG'],
   'Ladies': ['LK&L', 'LL', 'LU', 'LN&L'],
-  'Mens': ['ML', 'MU', 'MS-L', 'MS-U', 'MS-IW']
+  'MENS': ['ML', 'MU', 'MS-L', 'MS-U', 'MS-IW']
 };
 
 export interface SimplifiedCategory {
@@ -32,7 +32,7 @@ interface SimplifiedCategorySelectorProps {
 const normalizeDivision = (division?: string): string | null => {
   if (!division) return null;
   const upper = division.toUpperCase();
-  if (upper === 'MEN') return 'Mens';
+  if (upper === 'MEN' || upper === 'MENS') return 'MENS';
   if (upper === 'KIDS') return 'Kids';
   if (upper === 'LADIES') return 'Ladies';
   return division;
@@ -175,7 +175,7 @@ export const SimplifiedCategorySelector: React.FC<SimplifiedCategorySelectorProp
             1. Choose Division
           </Text>
           <Select
-            placeholder="Select division (Kids, Ladies, Mens)"
+            placeholder="Select division (Kids, Ladies, MENS)"
             value={selectedDepartment}
             onChange={handleDepartmentChange}
             style={{ width: '100%' }}

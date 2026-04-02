@@ -18,6 +18,7 @@ import { PlusOutlined, UserOutlined, ShopOutlined, AppstoreOutlined, EditOutline
 import { createUser, updateUser, deactivateUser, getUsers, getDepartments, type AdminUser } from '../../../services/adminApi';
 import ExcelJS from 'exceljs';
 import * as XLSX from 'xlsx';
+import { formatDivisionLabel } from '../../../shared/utils/ui/formatters';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -89,8 +90,10 @@ export default function UsersManagement() {
   }, [users, searchTerm]);
 
   const divisionNames = useMemo(() => {
-    const base = ['MEN', 'LADIES', 'KIDS'];
-    const fromDepartments = departments.map((d) => String(d.name || '').trim()).filter(Boolean);
+    const base = ['MENS', 'LADIES', 'KIDS'];
+    const fromDepartments = departments
+      .map((d) => formatDivisionLabel(String(d.name || '').trim()))
+      .filter(Boolean);
     const all = new Set<string>([...base, ...fromDepartments]);
     return Array.from(all);
   }, [departments]);
@@ -187,7 +190,7 @@ export default function UsersManagement() {
     setSelectedUser(user);
     setSelectedRole(user.role);
 
-    const divisionValue = String(user.division || '').trim().toUpperCase() || null;
+    const divisionValue = formatDivisionLabel(String(user.division || '').trim()).toUpperCase() || null;
     setSelectedDeptId(divisionValue);
 
     form.setFieldsValue({
@@ -227,7 +230,7 @@ export default function UsersManagement() {
       usersSheet.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
 
       // Example rows
-      usersSheet.addRow(['John Creator', 'john.creator@company.com', 'Temp@123', 'CREATOR', 'MEN', 'ML']);
+      usersSheet.addRow(['John Creator', 'john.creator@company.com', 'Temp@123', 'CREATOR', 'MENS', 'ML']);
       usersSheet.addRow(['Rita CategoryHead', 'rita.head@company.com', 'Temp@123', 'CATEGORY_HEAD', 'LADIES', '']);
 
       // Lists for dropdowns
@@ -318,7 +321,7 @@ export default function UsersManagement() {
 
       const divisionToSubDivision = new Map<string, Set<string>>();
       departments.forEach((dept) => {
-        const key = String(dept.name || '').trim().toUpperCase();
+        const key = formatDivisionLabel(String(dept.name || '')).toUpperCase();
         const set = new Set((dept.subDepartments || []).map((s) => String(s.code || '').trim().toUpperCase()).filter(Boolean));
         if (key) divisionToSubDivision.set(key, set);
       });
@@ -358,7 +361,7 @@ export default function UsersManagement() {
         }
 
         if ((role === 'CREATOR' || role === 'APPROVER') && division && subDivisionValues.length > 0) {
-          const allowed = divisionToSubDivision.get(division.toUpperCase());
+          const allowed = divisionToSubDivision.get(formatDivisionLabel(division).toUpperCase());
           const invalidValues = subDivisionValues.filter((sd) => !allowed?.has(sd.toUpperCase()));
           if (allowed && allowed.size > 0 && invalidValues.length > 0) {
             failed += 1;
@@ -434,7 +437,7 @@ export default function UsersManagement() {
         return (
           <Space direction="vertical" size={0}>
             <Text type="secondary" style={{ fontSize: 11 }}>
-              {record.division || 'No Division'}
+              {record.division ? formatDivisionLabel(record.division) : 'No Division'}
             </Text>
             <Text strong style={{ fontSize: 12 }}>
               {record.subDivision || 'No Sub-Division'}

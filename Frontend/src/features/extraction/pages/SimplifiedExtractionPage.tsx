@@ -52,7 +52,7 @@ const BASE_SIMPLIFIED_SCHEMA: SchemaItem[] = [
     label: 'Division',
     type: 'select',
     allowedValues: [
-      { shortForm: 'MEN', fullForm: 'MEN' },
+      { shortForm: 'MEN', fullForm: 'MENS' },
       { shortForm: 'KIDS', fullForm: 'KIDS' },
       { shortForm: 'LADIES', fullForm: 'LADIES' }
     ]
@@ -225,10 +225,10 @@ const SimplifiedExtractionPage = () => {
 
       const user = JSON.parse(userStr);
       if (user.role === 'CREATOR' && user.division) {
-        // Normalize division: MEN -> Mens, KIDS -> Kids, LADIES -> Ladies
+        // Normalize division for UI labels
         let normalizedDept = user.division;
         const upperDept = user.division.toUpperCase();
-        if (upperDept === 'MEN') normalizedDept = 'Mens';
+        if (upperDept === 'MEN' || upperDept === 'MENS') normalizedDept = 'MENS';
         else if (upperDept === 'KIDS') normalizedDept = 'Kids';
         else if (upperDept === 'LADIES') normalizedDept = 'Ladies';
 

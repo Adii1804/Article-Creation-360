@@ -6,6 +6,7 @@ import { getImageUrl } from '../../../shared/utils/common/helpers';
 import { SIMPLIFIED_HIERARCHY } from '../../extraction/components/SimplifiedCategorySelector';
 import { MAJOR_CATEGORY_ALLOWED_VALUES } from '../../../data/majorCategoryMcCodeMap';
 import { APP_CONFIG } from '../../../constants/app/config';
+import { formatDivisionLabel } from '../../../shared/utils/ui/formatters';
 import './ApproverTable.css';
 
 const { Text } = Typography;
@@ -214,7 +215,7 @@ const EditableCell: React.FC<EditableCellProps> = ({
                         onChange={save}
                         style={{ width: '100%', minWidth: 100 }}
                     >
-                        <Option value="MEN">MEN</Option>
+                        <Option value="MEN">MENS</Option>
                         <Option value="LADIES">LADIES</Option>
                         <Option value="KIDS">KIDS</Option>
                     </Select>
@@ -389,6 +390,7 @@ export const ApproverTable: React.FC<ApproverTableProps> = ({
             width: 120,
             editable: true,
             fixed: 'left' as const,
+            render: (value: string | null) => formatDivisionLabel(value),
         },
         {
             title: 'Sub-Division',
@@ -683,7 +685,7 @@ export const ApproverTable: React.FC<ApproverTableProps> = ({
                     let hierKey = '';
                     if (divisionName?.match(/LADIES|WOMEN/i)) hierKey = 'Ladies';
                     else if (divisionName?.match(/KIDS/i)) hierKey = 'Kids';
-                    else if (divisionName?.match(/MEN/i)) hierKey = 'Mens';
+                    else if (divisionName?.match(/MEN/i)) hierKey = 'MENS';
 
                     const subDivs = SIMPLIFIED_HIERARCHY[hierKey as keyof typeof SIMPLIFIED_HIERARCHY] || [];
                     options = subDivs.map((sd: string) => ({ label: sd, value: sd }));
