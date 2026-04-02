@@ -264,6 +264,7 @@ export class FlatExtractionController {
                     division: true,
                     subDivision: true,
                     approvalStatus: true,
+                    sapSyncStatus: true,
                     majorCategory: true,
                     rate: true,
                     mrp: true
@@ -275,7 +276,9 @@ export class FlatExtractionController {
                 return;
             }
 
-            if (existing.approvalStatus === 'APPROVED') {
+            const isSapLocked = existing.approvalStatus === 'APPROVED' && existing.sapSyncStatus === 'SYNCED';
+
+            if (isSapLocked) {
                 res.status(403).json({ success: false, error: 'Cannot update an approved item.' });
                 return;
             }

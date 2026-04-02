@@ -24,6 +24,8 @@ type ProductRow = {
   vendor: string;
   status: 'COMPLETED' | 'FAILED' | 'PROCESSING' | 'PENDING';
   rawStatus?: string | null;
+  approvalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
+  sapSyncStatus?: 'NOT_SYNCED' | 'PENDING' | 'SYNCED' | 'FAILED' | null;
   createdAt: string;
   createdAtTs?: number;
   updatedAt: string;
@@ -143,6 +145,28 @@ export default function Products() {
     if (normalized === 'error' || normalized === 'failed' || normalized === 'fail') return 'FAILED';
     if (normalized === 'processing' || normalized === 'extracting') return 'PROCESSING';
     return 'PENDING';
+  }, []);
+
+  const getDisplayStatus = useCallback((flat: any): ProductRow['status'] => {
+    const approvalStatus = String(flat?.approvalStatus || '').toUpperCase();
+    const sapSyncStatus = String(flat?.sapSyncStatus || '').toUpperCase();
+    const extractionStatus = normalizeStatus(flat?.extractionStatus);
+
+    if (sapSyncStatus === 'FAILED' || approvalStatus === 'REJECTED') return 'FAILED';
+    if (approvalStatus === 'APPROVED' && (sapSyncStatus === 'SYNCED' || sapSyncStatus === 'NOT_SYNCED')) {
+      return 'COMPLETED';
+    }
+
+    return extractionStatus;
+  }, [normalizeStatus]);
+
+  const canEditRow = useCallback((row: ProductRow) => {
+    const approvalStatus = String(row.approvalStatus || row.flatData?.approvalStatus || '').toUpperCase();
+    const sapSyncStatus = String(row.sapSyncStatus || row.flatData?.sapSyncStatus || '').toUpperCase();
+
+    if (approvalStatus !== 'APPROVED') return true;
+
+    return sapSyncStatus !== 'SYNCED';
   }, []);
 
   const getMajorCategory = useCallback((results?: ProductRow['results']) => {
@@ -503,7 +527,7 @@ export default function Products() {
             <Button size="small" onClick={() => handleViewDetails(row)}>
               Details
             </Button>
-            {row.flatData?.approvalStatus !== 'APPROVED' ? (
+            {canEditRow(row) ? (
               <Button size="small" onClick={() => handleOpenEdit(row)}>
                 Edit
               </Button>
@@ -516,7 +540,7 @@ export default function Products() {
       }
     ];
     return baseColumns;
-  }, [handleExport, handleOpenEdit, handleView, handleViewDetails, isAdmin]);
+  }, [canEditRow, handleExport, handleOpenEdit, handleView, handleViewDetails, isAdmin]);
 
   useEffect(() => {
     const fetchRows = async () => {
@@ -564,8 +588,10 @@ export default function Products() {
             name: flat.imageName || flat.designNumber || flat.jobId,
             productType: flat.majorCategory || '—',
             vendor: flat.vendorName || '—',
-            status: normalizeStatus(flat.extractionStatus),
+            status: getDisplayStatus(flat),
             rawStatus: flat.extractionStatus,
+            approvalStatus: flat.approvalStatus || null,
+            sapSyncStatus: flat.sapSyncStatus || null,
             createdAt: createdAtDate ? createdAtDate.toLocaleString() : '—',
             createdAtTs: createdAtDate ? createdAtDate.getTime() : 0,
             updatedAt: updatedAtDate ? updatedAtDate.toLocaleString() : '—',
@@ -602,7 +628,7 @@ export default function Products() {
     };
 
     fetchRows();
-  }, [currentUserEmail, currentUserId, isAdmin, isCreatorLike, normalizeStatus, buildDetailsRows]);
+  }, [currentUserEmail, currentUserId, isAdmin, isCreatorLike, getDisplayStatus, buildDetailsRows]);
 
   useEffect(() => {
     const fetchMasterAttributes = async () => {
