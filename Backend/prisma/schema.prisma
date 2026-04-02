@@ -302,6 +302,10 @@ model ExtractionResultFlat {
   approvedAt                  DateTime?      @map("approved_at")
   approver                    User?          @relation("ApproverRelation", fields: [approvedBy], references: [id])
 
+  // Watcher fields (set when image is auto-ingested from shared folder)
+  source                      String?        @db.VarChar(20)   // 'MANUAL' | 'WATCHER'
+  imageUncPath                String?        @unique @map("image_unc_path")
+
   // SAP Sync (Placeholder)
   sapSyncStatus               SapSyncStatus  @default(NOT_SYNCED) @map("sap_sync_status")
   sapArticleId                String?        @map("sap_article_id") @db.VarChar(100)

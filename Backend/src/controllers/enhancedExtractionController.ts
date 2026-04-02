@@ -18,12 +18,23 @@ export class EnhancedExtractionController {
     image: string;
     schema: SchemaItem[];
     categoryName?: string;
+    resolvedCategoryCode?: string;
     userId?: number;
     result: EnhancedExtractionResult;
     originalFilename?: string;
     folderName?: string;
     department?: string;
     subDepartment?: string;
+    watcherFields?: {
+      division?: string;
+      vendorName?: string;
+      vendorCode?: string;
+      majorCategory?: string;
+      subDivision?: string;
+      mcCode?: string;
+      source?: string;
+      imageUncPath?: string;
+    };
   }): Promise<{ jobId: string; flatId: string | null } | null> {
     try {
       const normalizeToken = (value?: string) =>
@@ -43,7 +54,7 @@ export class EnhancedExtractionController {
         return Array.from(tokens);
       };
 
-      const { image, schema, categoryName, userId, result, originalFilename, folderName, department, subDepartment } = params;
+      const { image, schema, categoryName, resolvedCategoryCode, userId, result, originalFilename, folderName, department, subDepartment } = params;
 
       const extractVendorCodeFromMetadata = (metadata: any): string | null => {
         if (!metadata || typeof metadata !== 'object') return null;
@@ -127,12 +138,18 @@ export class EnhancedExtractionController {
         }
       }
 
-      let category = categoryName
-        ? await prisma.category.findFirst({
-          where: whereClause,
+      // If watcher already resolved the exact category code, use it directly
+      let category = resolvedCategoryCode
+        ? await prisma.category.findUnique({
+          where: { code: resolvedCategoryCode },
           select: { id: true }
         })
-        : null;
+        : categoryName
+          ? await prisma.category.findFirst({
+            where: whereClause,
+            select: { id: true }
+          })
+          : null;
 
       // If no category found, check if it's a SubDepartment code (e.g. "ML")
       // and pick the first category under it as a proxy
@@ -292,6 +309,32 @@ export class EnhancedExtractionController {
         console.warn('Failed to flatten extraction results:', flatError);
       }
 
+      // If watcher fields are provided, override the flat row with them
+      const { watcherFields } = params;
+      if (watcherFields && flatId) {
+        try {
+          const overrides: Record<string, any> = {};
+          if (watcherFields.division)       overrides.division      = watcherFields.division;
+          if (watcherFields.vendorName)     overrides.vendorName    = watcherFields.vendorName;
+          if (watcherFields.vendorCode)     overrides.vendorCode    = watcherFields.vendorCode;
+          if (watcherFields.majorCategory)  overrides.majorCategory = watcherFields.majorCategory;
+          if (watcherFields.subDivision)    overrides.subDivision   = watcherFields.subDivision;
+          if (watcherFields.mcCode)         overrides.mcCode        = watcherFields.mcCode;
+          if (watcherFields.source)         overrides.source        = watcherFields.source;
+          if (watcherFields.imageUncPath)   overrides.imageUncPath  = watcherFields.imageUncPath;
+
+          if (Object.keys(overrides).length > 0) {
+            await prisma.extractionResultFlat.update({
+              where: { id: flatId },
+              data: overrides,
+            });
+            console.log(`✅ Watcher fields applied to flat row ${flatId}`);
+          }
+        } catch (overrideError) {
+          console.warn('⚠️ Failed to apply watcher field overrides:', overrideError);
+        }
+      }
+
       return {
         jobId: job.id,
         flatId
@@ -336,8 +379,33 @@ export class EnhancedExtractionController {
         department,
         subDepartment,
         season,
-        occasion
+        occasion,
+        // Watcher-provided fields (only present when source = 'WATCHER')
+        source,
+        image_unc_path,
+        watcher_division,
+        watcher_vendor_name,
+        watcher_vendor_code,
+        watcher_major_category,
+        watcher_sub_division,
+        watcher_mc_code,
       } = req.body;
+
+      // Duplicate check: reject if this UNC path was already processed
+      if (source === 'WATCHER' && image_unc_path) {
+        const existing = await prisma.extractionResultFlat.findUnique({
+          where: { imageUncPath: image_unc_path },
+          select: { id: true }
+        });
+        if (existing) {
+          res.status(409).json({
+            success: false,
+            error: 'Image already processed',
+            code: 'DUPLICATE'
+          });
+          return;
+        }
+      }
 
       // RBAC: Enforce Division/SubDivision for Creators
       let enforcedDepartment = department;
@@ -373,6 +441,47 @@ export class EnhancedExtractionController {
           timestamp: Date.now()
         });
         return;
+      }
+
+      // If schema is empty (e.g. watcher sending schema=[]), build schema from all
+      // AI-extractable master attributes — category-attribute links are not required
+      let resolvedCategoryCode: string | undefined;
+      if (parsedSchema.length === 0 && source === 'WATCHER') {
+        try {
+          // Resolve DB category from sub_division + division for correct persistence
+          if (watcher_sub_division && watcher_division) {
+            const matchedCat = await prisma.category.findFirst({
+              where: {
+                subDepartment: {
+                  code: { equals: watcher_sub_division, mode: 'insensitive' },
+                  department: { name: { equals: watcher_division, mode: 'insensitive' } }
+                }
+              },
+              select: { code: true }
+            });
+            if (matchedCat) resolvedCategoryCode = matchedCat.code;
+          }
+
+          // Build schema from all AI-extractable master attributes
+          const masterAttrs = await prisma.masterAttribute.findMany({
+            where: { aiExtractable: true, isActive: true },
+            orderBy: { key: 'asc' },
+            include: {
+              allowedValues: { where: { isActive: true }, orderBy: { displayOrder: 'asc' } }
+            }
+          });
+
+          parsedSchema = masterAttrs.map(attr => ({
+            key: attr.key,
+            label: attr.label || attr.key,
+            type: attr.type.toLowerCase() as any,
+            allowedValues: attr.allowedValues.map(av => av.shortForm),
+          }));
+
+          console.log(`📋 Watcher: built schema from ${parsedSchema.length} AI-extractable master attributes`);
+        } catch (schemaErr: any) {
+          console.warn(`⚠️ Watcher schema build failed: ${schemaErr.message}`);
+        }
       }
 
       // Convert image to base64 for VLM processing
@@ -458,12 +567,23 @@ export class EnhancedExtractionController {
         image: imagePath,
         schema: parsedSchema,
         categoryName,
+        resolvedCategoryCode,
         userId: req.user?.id,
         result,
         originalFilename: originalFilenameWithoutExt,
         folderName: effectiveFolderName,
         department: enforcedDepartment,
-        subDepartment: enforcedSubDepartment
+        subDepartment: enforcedSubDepartment,
+        watcherFields: source === 'WATCHER' ? {
+          division:      watcher_division      || undefined,
+          vendorName:    watcher_vendor_name   || undefined,
+          vendorCode:    watcher_vendor_code   || undefined,
+          majorCategory: watcher_major_category || undefined,
+          subDivision:   watcher_sub_division  || undefined,
+          mcCode:        watcher_mc_code       || undefined,
+          source:        'WATCHER',
+          imageUncPath:  image_unc_path        || undefined,
+        } : undefined,
       });
 
       res.json({
