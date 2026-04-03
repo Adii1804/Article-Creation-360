@@ -108,10 +108,12 @@ export const AttributeCell: React.FC<AttributeCellProps> = ({
     setEditValue(attribute?.schemaValue ?? attribute?.rawValue ?? null);
   }, [disabled, attribute?.schemaValue, attribute?.rawValue]);
 
-  const handleSaveEdit = useCallback((triggeredByEnter = false) => {
-    const effectiveValue = (schemaItem.type === 'select' && selectSearch.trim())
+  // explicitValue: pass the value directly (avoids stale-closure when called from Select onChange)
+  const handleSaveEdit = useCallback((triggeredByEnter = false, explicitValue?: string | number | null) => {
+    const baseValue = explicitValue !== undefined ? explicitValue : editValue;
+    const effectiveValue = (explicitValue === undefined && schemaItem.type === 'select' && selectSearch.trim())
       ? selectSearch.trim()
-      : editValue;
+      : baseValue;
     if (effectiveValue !== editValue) {
       setEditValue(effectiveValue);
     }
@@ -213,8 +215,11 @@ export const AttributeCell: React.FC<AttributeCellProps> = ({
       <Select
         value={editValue as string}
         onChange={(val) => {
-          setEditValue(val);
+          // Pass val explicitly so handleSaveEdit never reads stale editValue from closure
+          const newVal = val ?? null;
+          setEditValue(newVal);
           setSelectSearch('');
+          handleSaveEdit(true, newVal);
         }}
         onSearch={setSelectSearch}
         style={{ width: '100%', minWidth: 120 }}
@@ -227,10 +232,6 @@ export const AttributeCell: React.FC<AttributeCellProps> = ({
           option?.value === '__custom__' ||
           (option?.label as string)?.toLowerCase().includes(input.toLowerCase())
         }
-        onSelect={() => {
-          // Small delay so value is set before save
-          setTimeout(() => handleSaveEdit(true), 50);
-        }}
         popupRender={menu => (
           <div>
             {menu}
@@ -239,8 +240,10 @@ export const AttributeCell: React.FC<AttributeCellProps> = ({
                 style={{ padding: '6px 12px', borderTop: '1px solid #f0f0f0', cursor: 'pointer', color: '#1677ff', fontSize: 12 }}
                 onMouseDown={(e) => {
                   e.preventDefault();
-                  setEditValue(selectSearch.trim());
+                  const custom = selectSearch.trim();
+                  setEditValue(custom);
                   setSelectSearch('');
+                  handleSaveEdit(true, custom);
                 }}
               >
                 + Add "{selectSearch.trim()}" as new value
@@ -250,10 +253,11 @@ export const AttributeCell: React.FC<AttributeCellProps> = ({
         )}
       >
         {schemaItem.allowedValues?.map((valObj) => {
-          const value = valObj.shortForm || valObj.fullForm || '';
-          const label = valObj.fullForm
-            ? `${valObj.fullForm}${valObj.shortForm ? ` (${valObj.shortForm})` : ''}`
-            : (valObj.shortForm || '');
+          // Use fullForm as the stored value so what the user sees is what gets saved.
+          // Fall back to shortForm only if fullForm is absent.
+          const value = valObj.fullForm || valObj.shortForm || '';
+          const shortCode = valObj.shortForm && valObj.shortForm !== valObj.fullForm ? valObj.shortForm : '';
+          const label = value + (shortCode ? ` (${shortCode})` : '');
           return (
             <Option key={value} value={value} label={label}>
               {label}

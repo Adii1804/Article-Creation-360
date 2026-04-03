@@ -134,8 +134,17 @@ export const AttributeTable: React.FC<AttributeTableProps> = ({
         }
 
         const cellKey = `${record.id}::${schemaItem.key}`;
-        const nextSchemaItem = schema[schemaIndex + 1];
-        const nextCellKey = nextSchemaItem ? `${record.id}::${nextSchemaItem.key}` : null;
+        // Multi-article: Enter moves DOWN to same attribute on next row.
+        // Single article: Enter moves RIGHT to next attribute on same row.
+        let nextCellKey: string | null = null;
+        if (extractedRows.length === 1) {
+          const nextSchemaItem = schema[schemaIndex + 1];
+          nextCellKey = nextSchemaItem ? `${record.id}::${nextSchemaItem.key}` : null;
+        } else {
+          const currentRowIndex = extractedRows.findIndex(r => r.id === record.id);
+          const nextRow = extractedRows[currentRowIndex + 1];
+          nextCellKey = nextRow ? `${nextRow.id}::${schemaItem.key}` : null;
+        }
 
         return (
           <AttributeCell
@@ -215,7 +224,7 @@ export const AttributeTable: React.FC<AttributeTableProps> = ({
 
     // 🔗 COMBINE ALL COLUMNS: Fixed Left + Dynamic Attributes + Fixed Right
     return [...baseColumns, ...attributeColumns, ...actionsColumn];
-  }, [schema, onAttributeChange, onAddToSchema, onDeleteRow, onImageClick, onReExtract, focusedCellKey]);
+  }, [schema, extractedRows, onAttributeChange, onAddToSchema, onDeleteRow, onImageClick, onReExtract, focusedCellKey]);
 
   // ✅ ROW SELECTION CONFIGURATION (checkboxes)
   const rowSelection = {
