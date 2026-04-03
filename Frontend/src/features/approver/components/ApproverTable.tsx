@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useRef, useState, useMemo } from 'react';
+import React, { useCallback, useContext, useEffect, useRef, useState, useMemo } from 'react';
 import { Table, Tag, Form, Input, Select, Button, Typography, Image, Modal } from 'antd';
 import { EditOutlined } from '@ant-design/icons';
 import type { FormInstance } from 'antd/es/form';
@@ -238,8 +238,17 @@ interface ApproverTableProps {
     onSave: (item: ApproverItem) => void;
     attributes?: MasterAttribute[];
     user?: any;
-    tableHeight?: number | string;
 }
+
+// Returns density config based on device pixel ratio (accounts for screen DPI + browser zoom).
+// ratio < 1   → zoomed out / lots of space → comfortable
+// ratio 1–1.4 → standard screens           → compact
+// ratio > 1.4 → zoomed in / high-DPI       → compact
+const getDensity = () => {
+    const ratio = window.devicePixelRatio || 1;
+    if (ratio < 1) return { tableSize: 'middle' as const, imgSize: 56, padding: '4px 6px' };
+    return { tableSize: 'small' as const, imgSize: 44, padding: '2px 5px' };
+};
 
 export const ApproverTable: React.FC<ApproverTableProps> = ({
     items,
@@ -250,12 +259,40 @@ export const ApproverTable: React.FC<ApproverTableProps> = ({
     onSave,
     attributes = [],
     user,
-    tableHeight = 'calc(100vh - 460px)'
 }) => {
     const [remarksModalOpen, setRemarksModalOpen] = useState(false);
     const [activeRemarks, setActiveRemarks] = useState('');
     const [refreshedUrls, setRefreshedUrls] = useState<Record<string, string>>({});
     const [failedIds, setFailedIds] = useState<Set<string>>(new Set());
+    const [density, setDensity] = useState(getDensity);
+
+    // Re-evaluate density when browser zoom changes
+    useEffect(() => {
+        const mq = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+        const handler = () => setDensity(getDensity());
+        mq.addEventListener('change', handler);
+        return () => mq.removeEventListener('change', handler);
+    }, []);
+
+    // Compute scroll.y = distance from the table wrapper's top edge to the viewport bottom,
+    // minus: thead row (~35px) + pagination bar (~40px) + horizontal scrollbar (~16px) + buffer (8px).
+    const wrapperRef = useRef<HTMLDivElement>(null);
+    const [scrollY, setScrollY] = useState<number>(500);
+
+    const recalcScrollY = useCallback(() => {
+        const el = wrapperRef.current;
+        if (!el) return;
+        const top = el.getBoundingClientRect().top;
+        const available = window.innerHeight - top - 35 - 40 - 16 - 8;
+        setScrollY(Math.max(200, available));
+    }, []);
+
+    useEffect(() => {
+        // Run once after mount + on every resize/zoom
+        recalcScrollY();
+        window.addEventListener('resize', recalcScrollY);
+        return () => window.removeEventListener('resize', recalcScrollY);
+    }, [recalcScrollY]);
 
     const handleImageError = async (id: string) => {
         if (failedIds.has(id)) return; // already tried, don't retry again
@@ -289,17 +326,17 @@ export const ApproverTable: React.FC<ApproverTableProps> = ({
             width: 80,
             fixed: 'left' as const,
             render: (_: unknown, row: ApproverItem) => (
-                <div style={{ width: 64, height: 64, borderRadius: 8, overflow: 'hidden', background: '#f5f5f5' }}>
+                <div style={{ width: density.imgSize, height: density.imgSize, borderRadius: 6, overflow: 'hidden', background: '#f5f5f5' }}>
                     {row.imageUrl && !failedIds.has(row.id) || refreshedUrls[row.id] ? (
                         <Image
                             src={getImageUrl(refreshedUrls[row.id] || row.imageUrl!)}
                             alt={row.imageName || 'Product'}
-                            width={64}
-                            height={64}
+                            width={density.imgSize}
+                            height={density.imgSize}
                             style={{ objectFit: 'cover', cursor: 'pointer' }}
                             preview={{
                                 src: getImageUrl(refreshedUrls[row.id] || row.imageUrl!),
-                                mask: <span style={{ fontSize: 10 }}>👁 View</span>,
+                                mask: <span style={{ fontSize: 10 }}>👁</span>,
                             }}
                             onError={() => handleImageError(row.id)}
                             fallback="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
@@ -318,18 +355,18 @@ export const ApproverTable: React.FC<ApproverTableProps> = ({
             width: 200,
             fixed: 'left' as const,
             render: (_: unknown, row: ApproverItem) => (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                     {row.sapArticleId ? (
-                        <Text strong style={{ color: '#389e0d' }}>{row.sapArticleId}</Text>
+                        <Text strong style={{ color: '#389e0d', fontSize: 12 }}>{row.sapArticleId}</Text>
                     ) : (
-                        <Text strong>{row.articleNumber || row.imageName || row.designNumber || 'No Article #'}</Text>
+                        <Text strong style={{ fontSize: 12 }}>{row.articleNumber || row.imageName || row.designNumber || 'No Article #'}</Text>
                     )}
                     {row.approvalStatus !== 'APPROVED' && (
-                        <div onClick={() => onEdit(row)} style={{ cursor: 'pointer', color: '#1890ff' }}>
-                            <small>Edit Division/Category</small>
+                        <div onClick={() => onEdit(row)} style={{ cursor: 'pointer', color: '#1890ff', fontSize: 11 }}>
+                            Edit Division/Category
                         </div>
                     )}
-                    <Tag style={{ width: 'fit-content' }}>{row.vendorName || 'Unknown Vendor'}</Tag>
+                    <Tag style={{ width: 'fit-content', fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>{row.vendorName || 'Unknown Vendor'}</Tag>
                 </div>
             )
         },
@@ -681,31 +718,33 @@ export const ApproverTable: React.FC<ApproverTableProps> = ({
 
     return (
         <>
-            <Table
-                components={components}
-                className="approver-compact-table"
-                rowClassName={() => 'editable-row'}
-                rowKey="id"
-                columns={columns as any}
-                dataSource={items}
-                loading={loading}
-                size="small"
-                pagination={{
-                    pageSize: 50,
-                    showSizeChanger: false,
-                    showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
-                    position: ['bottomRight'],
-                }}
-                scroll={{ x: 'max-content', y: tableHeight }}
-                sticky
-                rowSelection={{
-                    selectedRowKeys,
-                    onChange: onSelectionChange,
-                    getCheckboxProps: (record) => ({
-                        disabled: record.approvalStatus === 'APPROVED' || record.approvalStatus === 'REJECTED',
-                    }),
-                }}
-            />
+            <div ref={wrapperRef}>
+                <Table
+                    components={components}
+                    className={density.tableSize === 'small' ? 'approver-compact-table' : 'approver-comfortable-table'}
+                    rowClassName={() => 'editable-row'}
+                    rowKey="id"
+                    columns={columns as any}
+                    dataSource={items}
+                    loading={loading}
+                    size={density.tableSize}
+                    pagination={{
+                        pageSize: 50,
+                        showSizeChanger: false,
+                        showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+                        position: ['bottomRight'],
+                    }}
+                    scroll={{ x: 'max-content', y: scrollY }}
+                    sticky
+                    rowSelection={{
+                        selectedRowKeys,
+                        onChange: onSelectionChange,
+                        getCheckboxProps: (record) => ({
+                            disabled: record.approvalStatus === 'APPROVED' || record.approvalStatus === 'REJECTED',
+                        }),
+                    }}
+                />
+            </div>
 
             <Modal
                 title="SAP Sync Remarks"

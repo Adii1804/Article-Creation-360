@@ -617,15 +617,12 @@ export default function ApproverDashboard() {
     );
 
     return (
-        <div style={{ height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <div style={{ marginBottom: 12, flexShrink: 0 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                    <div>
-                        <Title level={2} style={{ margin: 0 }}>Approver Dashboard</Title>
-                        <Text type="secondary">
-                            Review, edit, and approve extracted articles for SAP creation.
-                            {user?.division && <Text type="success" style={{ marginLeft: 8 }}>Scope: {formatDivisionLabel(user.division)} {user.subDivision ? `(${user.subDivision})` : ''}</Text>}
-                        </Text>
+        <div>
+            <div style={{ marginBottom: 6, flexShrink: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
+                        <Title level={4} style={{ margin: 0 }}>Approver Dashboard</Title>
+                        {user?.division && <Text type="success" style={{ fontSize: 12 }}>Scope: {formatDivisionLabel(user.division)} {user.subDivision ? `(${user.subDivision})` : ''}</Text>}
                     </div>
                 </div>
 
@@ -762,10 +759,9 @@ export default function ApproverDashboard() {
             <Card
                 variant="borderless"
                 className="shadow-sm"
-                style={{ flex: 1, minHeight: 0 }}
-                styles={{ body: { height: '100%', padding: 12, display: 'flex', flexDirection: 'column' } }}
+                style={{ marginTop: 6 }}
+                styles={{ body: { padding: '6px 8px' } }}
             >
-                <div style={{ flex: 1, minHeight: 0 }}>
                     <ApproverTable
                         items={filteredItems}
                         loading={loading}
@@ -774,7 +770,6 @@ export default function ApproverDashboard() {
                         onEdit={handleEdit}
                         attributes={attributes}
                         user={user}
-                        tableHeight="calc(100vh - 460px)"
                         onSave={async (row) => {
                         // Optimistic update
                         const newData = [...items];
@@ -825,7 +820,6 @@ export default function ApproverDashboard() {
                         }
                         }}
                     />
-                </div>
             </Card>
 
             <Modal
