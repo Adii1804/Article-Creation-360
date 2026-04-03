@@ -717,18 +717,13 @@ export class ApproverController {
             const finalMajorCategory = (data.majorCategory !== undefined ? data.majorCategory : existingItem.majorCategory) as string | null;
             const finalMrp = data.mrp !== undefined ? data.mrp : existingItem.mrp;
 
-            // Only enforce segment range check when MRP or majorCategory actually changed value
+            // Recalculate segment whenever MRP or majorCategory changes.
+            // MRP is manually editable, so never hard-block the save — just set segment to null if out of range.
             const mrpActuallyChanged = data.mrp !== undefined && toComparableNumber(data.mrp) !== toComparableNumber(existingItem.mrp);
             const categoryActuallyChanged = data.majorCategory !== undefined && data.majorCategory !== existingItem.majorCategory;
             if ((mrpActuallyChanged || categoryActuallyChanged) && finalMajorCategory && finalMrp !== null && finalMrp !== undefined) {
                 const segment = getSegmentByCategoryAndMrp(finalMajorCategory, finalMrp);
-                if (!segment) {
-                    return res.status(400).json({
-                        error: ApproverController.SEGMENT_RANGE_ERROR
-                    });
-                }
-
-                data.segment = segment;
+                data.segment = segment ?? null;
             } else if (finalMajorCategory && finalMrp !== null && finalMrp !== undefined) {
                 // Always try to set segment silently (no error if not found)
                 const segment = getSegmentByCategoryAndMrp(finalMajorCategory, finalMrp);
