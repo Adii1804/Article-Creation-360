@@ -700,9 +700,9 @@ export class ApproverController {
             const existingRate = toComparableNumber(existingItem.rate);
             const rateActuallyChanged = data.rate !== undefined && incomingRate !== existingRate;
 
-            // Only derive MRP from rate when rate actually changes.
+            // Only derive MRP from rate when rate actually changes AND user did not manually provide MRP.
             // This prevents failed saves when the frontend sends full rows with unchanged values.
-            if (rateActuallyChanged) {
+            if (rateActuallyChanged && data.mrp === undefined) {
                 data.mrp = calculateMrpFromRate(incomingRate);
             } else if (
                 data.rate === undefined &&

@@ -100,6 +100,8 @@ export default function ApproverDashboard() {
     const [form] = Form.useForm();
     // Track selected division in modal to cascade subDivision dropdown
     const [modalDivision, setModalDivision] = useState<string | undefined>(undefined);
+    // Track if user manually edited MRP so Rate onChange doesn't overwrite it
+    const [mrpManuallyEdited, setMrpManuallyEdited] = useState(false);
 
     const fetchAttributes = useCallback(async () => {
         try {
@@ -365,6 +367,7 @@ export default function ApproverDashboard() {
             year: item.year,
             articleType: item.articleType,
         });
+        setMrpManuallyEdited(false);
         setIsEditModalOpen(true);
     };
 
@@ -500,15 +503,20 @@ export default function ApproverDashboard() {
                 <Form.Item name="rate" label="Rate">
                     <Input
                         onChange={(e) => {
-                            const mrp = calculateMrpFromRate(e.target.value);
-                            form.setFieldsValue({ mrp });
+                            if (!mrpManuallyEdited) {
+                                const mrp = calculateMrpFromRate(e.target.value);
+                                form.setFieldsValue({ mrp });
+                            }
                         }}
                     />
                 </Form.Item>
             </Col>
             <Col span={12}>
                 <Form.Item name="mrp" label="MRP">
-                    <Input placeholder="e.g. 599" />
+                    <Input
+                        placeholder="e.g. 599"
+                        onChange={() => setMrpManuallyEdited(true)}
+                    />
                 </Form.Item>
             </Col>
             <Col span={12}>
