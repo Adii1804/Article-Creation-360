@@ -49,43 +49,64 @@ function collectImages(dir, results = []) {
  */
 const MONTH_NAMES = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
-function getTodayFolderName() {
-  const now = new Date();
+function getTodayFolderName(overrideDate) {
+  const now = overrideDate || new Date();
   const dd   = String(now.getDate()).padStart(2, '0');
   const mm   = String(now.getMonth() + 1).padStart(2, '0');
   const yyyy = now.getFullYear();
   return `${dd}.${mm}.${yyyy}`;
 }
 
-function getCurrentYear() {
-  return String(new Date().getFullYear());
+function getCurrentYear(overrideDate) {
+  return String((overrideDate || new Date()).getFullYear());
 }
 
-function getCurrentMonthName() {
-  return MONTH_NAMES[new Date().getMonth()]; // e.g. "APR"
+function getCurrentMonthName(overrideDate) {
+  return MONTH_NAMES[(overrideDate || new Date()).getMonth()]; // e.g. "APR"
+}
+
+/**
+ * Parse --date=DD.MM.YYYY from CLI args, returns a Date object or null.
+ */
+function parseDateArg() {
+  const arg = process.argv.find(a => a.startsWith('--date='));
+  if (!arg) return null;
+  const val = arg.split('=')[1]; // e.g. "02.04.2026"
+  const parts = val.split('.');
+  if (parts.length !== 3) {
+    log.warn(`Invalid --date format "${val}". Use DD.MM.YYYY`);
+    return null;
+  }
+  const [dd, mm, yyyy] = parts;
+  return new Date(Number(yyyy), Number(mm) - 1, Number(dd));
 }
 
 async function runScan() {
-  const todayFolder = getTodayFolderName();
+  const overrideDate = parseDateArg();
+  const todayFolder = getTodayFolderName(overrideDate);
 
   log.info('=== Scan started ===');
   log.info(`Root: ${WATCH_ROOT}`);
-  log.info(`Date filter: only processing folder "${todayFolder}"`);
+  if (overrideDate) {
+    log.info(`Date override: processing folder "${todayFolder}" (--date flag)`);
+  } else {
+    log.info(`Date filter: only processing folder "${todayFolder}"`);
+  }
 
   if (!fs.existsSync(WATCH_ROOT)) {
     log.error(`Watch root not accessible: ${WATCH_ROOT}`);
     return;
   }
 
-  // Walk only YEAR → MONTH → <DIVISION> → <TODAY's DATE> subdirectories
+  // Walk only YEAR → MONTH → <DIVISION> → <TARGET DATE> subdirectories
   let totalFound = 0;
   let totalNew = 0;
   let totalOk = 0;
   let totalDup = 0;
   let totalFail = 0;
 
-  const currentYear = getCurrentYear();
-  const currentMonth = getCurrentMonthName();
+  const currentYear = getCurrentYear(overrideDate);
+  const currentMonth = getCurrentMonthName(overrideDate);
   log.info(`Year filter: ${currentYear} | Month filter: ${currentMonth}`);
 
   // Only enter current year folder
