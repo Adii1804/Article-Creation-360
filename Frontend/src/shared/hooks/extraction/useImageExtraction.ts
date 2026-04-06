@@ -30,6 +30,36 @@ let globalExtractedRows: ExtractedRowEnhanced[] = [];
 let globalIsExtracting = false;
 let globalProgress = 0;
 
+const buildScopeAttribute = (value: string, reasoning: string) => ({
+  rawValue: value,
+  schemaValue: value,
+  visualConfidence: 100,
+  mappingConfidence: 100,
+  isNewDiscovery: false,
+  reasoning,
+  isUserEdited: false,
+});
+
+const parseSelectedScope = (categoryCode?: string, categoryName?: string) => {
+  const scopeText = String(categoryCode || categoryName || '').trim();
+  if (!scopeText) {
+    return { division: null, subDivision: null };
+  }
+
+  const separatorIndex = scopeText.indexOf('-');
+  if (separatorIndex === -1) {
+    return { division: scopeText, subDivision: null };
+  }
+
+  const division = scopeText.slice(0, separatorIndex).trim();
+  const subDivision = scopeText.slice(separatorIndex + 1).trim();
+
+  return {
+    division: division || null,
+    subDivision: subDivision || null
+  };
+};
+
 export const resetExtractionSession = () => {
   globalExtractedRows = [];
   globalIsExtracting = false;
@@ -216,6 +246,20 @@ export const useImageExtraction = () => {
           result.attributes,
           schemaAsRecord
         );
+
+        const selectedScope = parseSelectedScope(categoryCode, categoryName);
+        if (selectedScope.division) {
+          processedAttributesSync.division = buildScopeAttribute(
+            selectedScope.division,
+            'Auto-filled from selected extraction scope'
+          );
+        }
+        if (selectedScope.subDivision) {
+          processedAttributesSync.sub_division = buildScopeAttribute(
+            selectedScope.subDivision,
+            'Auto-filled from selected extraction scope'
+          );
+        }
 
         const updated: ExtractedRowEnhanced = {
           ...row,

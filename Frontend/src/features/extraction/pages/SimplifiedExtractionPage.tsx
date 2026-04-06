@@ -45,6 +45,47 @@ const KEY_ALIASES: Record<string, string> = {
   patches_type: 'patch_type'
 };
 
+const ATTRIBUTE_VALUE_CORRECTIONS: Record<string, Record<string, string>> = {
+  weave: {
+    CH_TWL: 'CHN_TWL',
+    CHINA_TWL: 'CHN_TWL'
+  },
+  m_fab2: {
+    '3': '3/1'
+  }
+};
+
+const normalizeAllowedValues = (attributeKey: string, allowedValues: any[] = []) => {
+  const normalizedKey = String(attributeKey || '').trim().toLowerCase();
+  const correctionMap = ATTRIBUTE_VALUE_CORRECTIONS[normalizedKey] || {};
+  const deduped = new Map<string, { shortForm: string; fullForm: string }>();
+
+  for (const item of allowedValues) {
+    const shortFormRaw = String(item?.shortForm ?? item?.value ?? '').trim();
+    const fullFormRaw = String(item?.fullForm ?? shortFormRaw).trim();
+
+    if (!shortFormRaw && !fullFormRaw) {
+      continue;
+    }
+
+    const correctedShortForm = correctionMap[shortFormRaw] || shortFormRaw;
+    const key = correctedShortForm.toUpperCase();
+
+    if (!key) {
+      continue;
+    }
+
+    if (!deduped.has(key)) {
+      deduped.set(key, {
+        shortForm: correctedShortForm,
+        fullForm: fullFormRaw || correctedShortForm
+      });
+    }
+  }
+
+  return Array.from(deduped.values());
+};
+
 
 const BASE_SIMPLIFIED_SCHEMA: SchemaItem[] = [
   {
@@ -286,7 +327,7 @@ const SimplifiedExtractionPage = () => {
           if (keyLower === 'major_category') {
             return {
               ...item,
-              allowedValues: MAJOR_CATEGORY_ALLOWED_VALUES
+              allowedValues: normalizeAllowedValues(item.key, MAJOR_CATEGORY_ALLOWED_VALUES)
             };
           }
 
@@ -294,9 +335,12 @@ const SimplifiedExtractionPage = () => {
           const fetchedAllowed = allowedMap.get(keyLower) || allowedMap.get(aliasKey);
           return {
             ...item,
-            allowedValues: (fetchedAllowed && fetchedAllowed.length > 0)
+            allowedValues: normalizeAllowedValues(
+              item.key,
+              (fetchedAllowed && fetchedAllowed.length > 0)
               ? fetchedAllowed
               : (item.allowedValues || [])
+            )
           };
         });
 
@@ -317,13 +361,15 @@ const SimplifiedExtractionPage = () => {
   const handleAddToSchema = useCallback((attributeKey: string, value: string) => {
     setSimplifiedSchema(prev => prev.map(item => {
       if (item.key !== attributeKey) return item;
+      const normalizedIncoming = normalizeAllowedValues(attributeKey, [{ shortForm: value, fullForm: value }])[0];
+      if (!normalizedIncoming) return item;
       const alreadyExists = item.allowedValues?.some(
-        v => (v.shortForm || '').toLowerCase() === value.toLowerCase()
+        v => (v.shortForm || '').toLowerCase() === normalizedIncoming.shortForm.toLowerCase()
       );
       if (alreadyExists) return item;
       return {
         ...item,
-        allowedValues: [...(item.allowedValues || []), { shortForm: value, fullForm: value }]
+        allowedValues: [...(item.allowedValues || []), normalizedIncoming]
       };
     }));
   }, []);

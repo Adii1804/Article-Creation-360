@@ -27,15 +27,15 @@ interface AttributeCellProps {
   onChange: (value: string | number | null, aiPredicted?: string) => void;
   onAddToSchema?: (value: string) => void;
   disabled?: boolean;
-  // Navigation: called after Enter-save so parent can focus next cell
   onSaveAndNext?: () => void;
-  // When true, this cell should auto-enter edit mode
   autoFocus?: boolean;
-  // Called once after auto-focus is consumed so parent can reset its state
   onAutoFocused?: () => void;
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+
+const normalizeText = (value: string | number | null | undefined): string =>
+  String(value ?? '').trim();
 
 const persistNewValueToBackend = async (attributeKey: string, value: string) => {
   try {
@@ -67,8 +67,44 @@ export const AttributeCell: React.FC<AttributeCellProps> = ({
   const [editValue, setEditValue] = useState<string | number | null>(null);
   const [selectSearch, setSelectSearch] = useState('');
   const inputRef = useRef<any>(null);
-  // Track whether save was triggered by Enter (for navigation)
   const savedByEnterRef = useRef(false);
+
+  const normalizeSelectValue = useCallback((value: string | number | null | undefined) => {
+    const candidate = normalizeText(value);
+    if (!candidate || schemaItem.type !== 'select' || !schemaItem.allowedValues?.length) {
+      return candidate;
+    }
+
+    const lowerCandidate = candidate.toLowerCase();
+    const exactShort = schemaItem.allowedValues.find(
+      (item) => normalizeText(item.shortForm).toLowerCase() === lowerCandidate
+    );
+    if (exactShort?.shortForm) {
+      return exactShort.shortForm;
+    }
+
+    const exactFull = schemaItem.allowedValues.find(
+      (item) => normalizeText(item.fullForm || item.shortForm).toLowerCase() === lowerCandidate
+    );
+    if (exactFull?.shortForm) {
+      return exactFull.shortForm;
+    }
+
+    return candidate;
+  }, [schemaItem.allowedValues, schemaItem.type]);
+
+  const getDisplayValue = useCallback((value: string | number | null | undefined) => {
+    const candidate = normalizeText(value);
+    if (!candidate) {
+      return '';
+    }
+
+    if (schemaItem.type !== 'select' || !schemaItem.allowedValues?.length) {
+      return candidate;
+    }
+
+    return normalizeSelectValue(candidate);
+  }, [normalizeSelectValue, schemaItem.allowedValues, schemaItem.type]);
 
   useEffect(() => {
     if (schemaItem.key === 'fab_yarn-01' || schemaItem.key === 'fab_yarn-02' || schemaItem.key === 'fab_weave-02') {
@@ -85,7 +121,6 @@ export const AttributeCell: React.FC<AttributeCellProps> = ({
     setEditValue(attribute?.schemaValue ?? attribute?.rawValue ?? null);
   }, [attribute?.schemaValue, attribute?.rawValue]);
 
-  // Auto-focus: enter edit mode when parent requests it
   useEffect(() => {
     if (autoFocus && !disabled) {
       setIsEditing(true);
@@ -94,10 +129,8 @@ export const AttributeCell: React.FC<AttributeCellProps> = ({
     }
   }, [autoFocus]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Focus the input element when editing starts
   useEffect(() => {
     if (isEditing && schemaItem.type === 'text') {
-      // Small delay to let the DOM render
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [isEditing, schemaItem.type]);
@@ -108,57 +141,62 @@ export const AttributeCell: React.FC<AttributeCellProps> = ({
     setEditValue(attribute?.schemaValue ?? attribute?.rawValue ?? null);
   }, [disabled, attribute?.schemaValue, attribute?.rawValue]);
 
-  // explicitValue: pass the value directly (avoids stale-closure when called from Select onChange)
   const handleSaveEdit = useCallback((triggeredByEnter = false, explicitValue?: string | number | null) => {
     const baseValue = explicitValue !== undefined ? explicitValue : editValue;
     const effectiveValue = (explicitValue === undefined && schemaItem.type === 'select' && selectSearch.trim())
       ? selectSearch.trim()
       : baseValue;
-    if (effectiveValue !== editValue) {
-      setEditValue(effectiveValue);
+    const normalizedEffectiveValue = schemaItem.type === 'select'
+      ? normalizeSelectValue(effectiveValue)
+      : effectiveValue;
+
+    if (normalizedEffectiveValue !== editValue) {
+      setEditValue(normalizedEffectiveValue);
     }
 
-    const aiPredictedValue = attribute?.schemaValue;
-    const isCorrection = aiPredictedValue && effectiveValue !== aiPredictedValue;
+    const aiPredictedValue = schemaItem.type === 'select'
+      ? normalizeSelectValue(attribute?.schemaValue)
+      : attribute?.schemaValue;
+    const isCorrection = aiPredictedValue && normalizedEffectiveValue !== aiPredictedValue;
 
     if (isCorrection) {
       submitCorrection({
         attributeKey: schemaItem.key,
         aiPredicted: String(aiPredictedValue),
-        userCorrected: String(effectiveValue),
+        userCorrected: String(normalizedEffectiveValue),
         timestamp: new Date().toISOString()
       }).catch((err) => {
-        console.warn('⚠️ Failed to log correction (non-critical):', err);
+        console.warn('Failed to log correction (non-critical):', err);
       });
     }
 
-    onChange(effectiveValue, isCorrection ? String(aiPredictedValue) : undefined);
+    onChange(normalizedEffectiveValue, isCorrection ? String(aiPredictedValue) : undefined);
     setIsEditing(false);
     setSelectSearch('');
     savedByEnterRef.current = triggeredByEnter;
 
     if (
-      effectiveValue !== null &&
-      effectiveValue !== undefined &&
-      effectiveValue !== '' &&
+      normalizedEffectiveValue !== null &&
+      normalizedEffectiveValue !== undefined &&
+      normalizedEffectiveValue !== '' &&
       schemaItem.type === 'select' &&
       schemaItem.allowedValues &&
       schemaItem.allowedValues.length > 0
     ) {
-      const strVal = String(effectiveValue).trim().toLowerCase();
+      const strVal = String(normalizedEffectiveValue).trim().toLowerCase();
       const exists = schemaItem.allowedValues.some(
-        v => (v.shortForm || '').toLowerCase() === strVal || (v.fullForm || '').toLowerCase() === strVal
+        (v) => (v.shortForm || '').toLowerCase() === strVal || (v.fullForm || '').toLowerCase() === strVal
       );
       if (!exists) {
-        onAddToSchema?.(String(effectiveValue).trim());
-        persistNewValueToBackend(schemaItem.key, String(effectiveValue).trim());
+        onAddToSchema?.(String(normalizedEffectiveValue).trim());
+        persistNewValueToBackend(schemaItem.key, String(normalizedEffectiveValue).trim());
       }
     }
 
     if (triggeredByEnter) {
       onSaveAndNext?.();
     }
-  }, [editValue, onChange, onAddToSchema, attribute?.schemaValue, schemaItem, selectSearch, onSaveAndNext]);
+  }, [editValue, onChange, onAddToSchema, attribute?.schemaValue, schemaItem, selectSearch, onSaveAndNext, normalizeSelectValue]);
 
   const handleCancelEdit = useCallback(() => {
     setEditValue(attribute?.schemaValue ?? attribute?.rawValue ?? null);
@@ -180,7 +218,7 @@ export const AttributeCell: React.FC<AttributeCellProps> = ({
     if (schemaValue !== null && schemaValue !== undefined && schemaValue !== '') {
       return (
         <Text strong style={{ fontSize: 12 }}>
-          {String(schemaValue)}
+          {getDisplayValue(schemaValue)}
         </Text>
       );
     }
@@ -188,7 +226,7 @@ export const AttributeCell: React.FC<AttributeCellProps> = ({
     if (rawValue !== null && rawValue !== undefined && rawValue !== '') {
       return (
         <Text style={{ fontSize: 12, color: '#666', fontStyle: 'italic' }}>
-          {String(rawValue)}
+          {getDisplayValue(rawValue)}
         </Text>
       );
     }
@@ -213,9 +251,8 @@ export const AttributeCell: React.FC<AttributeCellProps> = ({
       />
     ) : (
       <Select
-        value={editValue as string}
+        value={normalizeText(editValue) || undefined}
         onChange={(val) => {
-          // Pass val explicitly so handleSaveEdit never reads stale editValue from closure
           const newVal = val ?? null;
           setEditValue(newVal);
           setSelectSearch('');
@@ -253,11 +290,8 @@ export const AttributeCell: React.FC<AttributeCellProps> = ({
         )}
       >
         {schemaItem.allowedValues?.map((valObj) => {
-          // Use fullForm as the stored value so what the user sees is what gets saved.
-          // Fall back to shortForm only if fullForm is absent.
-          const value = valObj.fullForm || valObj.shortForm || '';
-          const shortCode = valObj.shortForm && valObj.shortForm !== valObj.fullForm ? valObj.shortForm : '';
-          const label = value + (shortCode ? ` (${shortCode})` : '');
+          const value = valObj.shortForm || valObj.fullForm || '';
+          const label = valObj.shortForm || valObj.fullForm || '';
           return (
             <Option key={value} value={value} label={label}>
               {label}
