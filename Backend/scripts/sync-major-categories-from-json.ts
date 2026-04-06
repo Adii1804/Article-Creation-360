@@ -5,9 +5,12 @@ import * as path from 'path';
 type RawMajorCategoryRow = {
   SN?: number | string;
   'MC\nCD'?: number | string;
+  'SR.NO'?: number | string;
   DIV?: string;
   SUB_DIV?: string;
   MAJ_CAT_NM?: string;
+  MAJ_CAT?: string;
+  MC_CD?: number | string;
 };
 
 type NormalizedMajorCategoryRow = {
@@ -27,9 +30,10 @@ type McCodeLookupRow = {
 const prisma = new PrismaClient();
 
 const repoRoot = path.resolve(__dirname, '../..');
-const sourceJsonPath = path.join(repoRoot, 'MajorCategory.json');
+const sourceJsonPath = path.join(repoRoot, 'MAJ_CAT_NEW.json');
 const backendLookupPath = path.join(repoRoot, 'Backend/src/data/mc-code-list-major-category.json');
 const frontendLookupPath = path.join(repoRoot, 'Frontend/src/data/mc-code-list-major-category.json');
+const watcherMappingPath = path.join(repoRoot, 'watcher/categoryMapping.json');
 
 const stripBom = (value: string): string => value.replace(/^\uFEFF/, '');
 
@@ -41,15 +45,21 @@ const normalizeText = (value?: string | number | null): string =>
 const normalizeName = (value?: string | null): string =>
   normalizeText(value).toUpperCase().replace(/\s+/g, '_');
 
-const readJsonFile = <T>(filePath: string): T =>
-  JSON.parse(stripBom(fs.readFileSync(filePath, 'utf8'))) as T;
+const readJsonFile = <T>(filePath: string): T => {
+  const raw = stripBom(fs.readFileSync(filePath, 'utf8')).trim();
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return JSON.parse(`[${raw.replace(/^\[|\]$/g, '')}]`) as T;
+  }
+};
 
 const normalizeSourceRows = (rows: RawMajorCategoryRow[]): NormalizedMajorCategoryRow[] => {
   const byName = new Map<string, NormalizedMajorCategoryRow>();
 
   for (const row of rows) {
-    const name = normalizeName(row.MAJ_CAT_NM);
-    const mcCode = normalizeText(row['MC\nCD']);
+    const name = normalizeName(row.MAJ_CAT ?? row.MAJ_CAT_NM);
+    const mcCode = normalizeText(row.MC_CD ?? row['MC\nCD']);
     const division = normalizeText(row.DIV).toUpperCase();
     const subDivision = normalizeText(row.SUB_DIV).toUpperCase();
 
@@ -80,6 +90,19 @@ const toLookupRows = (rows: NormalizedMajorCategoryRow[]): McCodeLookupRow[] =>
 
 const writeLookupFile = (filePath: string, rows: McCodeLookupRow[]) => {
   fs.writeFileSync(filePath, `${JSON.stringify(rows, null, 2)}\n`, 'utf8');
+};
+
+const writeWatcherMappingFile = (filePath: string, rows: NormalizedMajorCategoryRow[]) => {
+  const mapping = rows.reduce<Record<string, { sub_division: string; mc_code: string; division: string }>>((acc, row) => {
+    acc[row.name] = {
+      sub_division: row.subDivision,
+      mc_code: row.mcCode,
+      division: row.division
+    };
+    return acc;
+  }, {});
+
+  fs.writeFileSync(filePath, `${JSON.stringify(mapping, null, 2)}\n`, 'utf8');
 };
 
 async function syncDatabase(rows: NormalizedMajorCategoryRow[]) {
@@ -180,12 +203,14 @@ async function main() {
 
   writeLookupFile(backendLookupPath, toLookupRows(normalizedRows));
   writeLookupFile(frontendLookupPath, toLookupRows(normalizedRows));
+  writeWatcherMappingFile(watcherMappingPath, normalizedRows);
 
   const dbSummary = await syncDatabase(normalizedRows);
 
-  console.log(`Synced ${normalizedRows.length} major categories from MajorCategory.json`);
+  console.log(`Synced ${normalizedRows.length} major categories from MAJ_CAT_NEW.json`);
   console.log(`Backend lookup updated: ${backendLookupPath}`);
   console.log(`Frontend lookup updated: ${frontendLookupPath}`);
+  console.log(`Watcher mapping updated: ${watcherMappingPath}`);
   console.log(
     `DB summary: inserted ${dbSummary.inserted}, updated ${dbSummary.updated}, deactivated ${dbSummary.deactivated}`
   );

@@ -1,6 +1,6 @@
 [
   {
-    "mc code": "135410101",
+    "mc code": "135410103",
     "mc des": "IB_B_SUIT_FS",
     "division": "KIDS",
     "sub division": "KB-SETS"
@@ -72,7 +72,7 @@
     "sub division": "IB"
   },
   {
-    "mc code": "136030102",
+    "mc code": "136030101",
     "mc des": "IBW_B_SUIT",
     "division": "KIDS",
     "sub division": "KBW-SETS"
@@ -108,8 +108,14 @@
     "sub division": "KBW-U"
   },
   {
+    "mc code": "136150103",
+    "mc des": "IBW_THRM_L",
+    "division": "KIDS",
+    "sub division": "KBW-U"
+  },
+  {
     "mc code": "136150102",
-    "mc des": "IBW_THRM_W",
+    "mc des": "IBW_THRM_U",
     "division": "KIDS",
     "sub division": "KBW-U"
   },
@@ -162,7 +168,7 @@
     "sub division": "KG-U"
   },
   {
-    "mc code": "135310101",
+    "mc code": "135310103",
     "mc des": "IG_TOP_HS",
     "division": "KIDS",
     "sub division": "IG"
@@ -174,13 +180,13 @@
     "sub division": "KGW-U"
   },
   {
-    "mc code": "131010101",
+    "mc code": "131800101",
     "mc des": "JB_B_SUIT_SL",
     "division": "KIDS",
     "sub division": "KB-SETS"
   },
   {
-    "mc code": "131030101",
+    "mc code": "131790101",
     "mc des": "JB_B_SUIT_ST_HS",
     "division": "KIDS",
     "sub division": "KB-SETS"
@@ -192,7 +198,7 @@
     "sub division": "KB-L"
   },
   {
-    "mc code": "131670101",
+    "mc code": "131670301",
     "mc des": "JB_CRG",
     "division": "KIDS",
     "sub division": "KB-L"
@@ -234,7 +240,7 @@
     "sub division": "KB-U"
   },
   {
-    "mc code": "131110101",
+    "mc code": "131110104",
     "mc des": "JB_KURTA_ST",
     "division": "KIDS",
     "sub division": "KB-SETS"
@@ -246,7 +252,7 @@
     "sub division": "KB-U"
   },
   {
-    "mc code": "131150101",
+    "mc code": "131150201",
     "mc des": "JB_SHIRT_HS",
     "division": "KIDS",
     "sub division": "KB-U"
@@ -288,7 +294,7 @@
     "sub division": "KB-L"
   },
   {
-    "mc code": "131230201",
+    "mc code": "131560102",
     "mc des": "JB_T_SHIRT_PN_HS",
     "division": "KIDS",
     "sub division": "KB-U"
@@ -300,7 +306,7 @@
     "sub division": "KB-U"
   },
   {
-    "mc code": "131710101",
+    "mc code": "131710102",
     "mc des": "JB_TEES_HD_FS",
     "division": "KIDS",
     "sub division": "KB-U"
@@ -378,7 +384,7 @@
     "sub division": "KBW-U"
   },
   {
-    "mc code": "132190101",
+    "mc code": "132190106",
     "mc des": "JBW_T_SHIRT_HD_FS",
     "division": "KIDS",
     "sub division": "KBW-U"
@@ -414,7 +420,7 @@
     "sub division": "KG-L"
   },
   {
-    "mc code": "133830201",
+    "mc code": "133830101",
     "mc des": "JG_CARGO",
     "division": "KIDS",
     "sub division": "KG-L"
@@ -476,6 +482,18 @@
   {
     "mc code": "133180101",
     "mc des": "JG_JEANS",
+    "division": "KIDS",
+    "sub division": "KG-L"
+  },
+  {
+    "mc code": "133250301",
+    "mc des": "JG_N_SUIT_FS",
+    "division": "KIDS",
+    "sub division": "KG-L"
+  },
+  {
+    "mc code": "133260301",
+    "mc des": "JG_N_SUIT_HS",
     "division": "KIDS",
     "sub division": "KG-L"
   },
@@ -558,20 +576,26 @@
     "sub division": "KG-U"
   },
   {
-    "mc code": "134010102",
+    "mc code": "134010101",
     "mc des": "JGW_BLAZER",
     "division": "KIDS",
     "sub division": "KGW-U"
   },
   {
-    "mc code": "134020102",
+    "mc code": "134020101",
     "mc des": "JGW_FLC_TOP",
     "division": "KIDS",
     "sub division": "KGW-U"
   },
   {
-    "mc code": "134030101",
+    "mc code": "134030301",
     "mc des": "JGW_JKT_FS",
+    "division": "KIDS",
+    "sub division": "KGW-U"
+  },
+  {
+    "mc code": "134040301",
+    "mc des": "JGW_JKT_SL",
     "division": "KIDS",
     "sub division": "KGW-U"
   },
@@ -596,6 +620,18 @@
   {
     "mc code": "134070101",
     "mc des": "JGW_ST",
+    "division": "KIDS",
+    "sub division": "KGW-U"
+  },
+  {
+    "mc code": "134080301",
+    "mc des": "JGW_SWEATER_FS",
+    "division": "KIDS",
+    "sub division": "KGW-U"
+  },
+  {
+    "mc code": "134090301",
+    "mc des": "JGW_SWEATER_SL",
     "division": "KIDS",
     "sub division": "KGW-U"
   },
@@ -654,13 +690,13 @@
     "sub division": "KGW-L"
   },
   {
-    "mc code": "135340101",
+    "mc code": "135640101",
     "mc des": "KI_B_SUIT_SL",
     "division": "KIDS",
     "sub division": "IB"
   },
   {
-    "mc code": "135350101",
+    "mc code": "135350103",
     "mc des": "KI_B_SUIT_ST_HS",
     "division": "KIDS",
     "sub division": "IB"
@@ -738,7 +774,7 @@
     "sub division": "KBW-L"
   },
   {
-    "mc code": "136090102",
+    "mc code": "136090101",
     "mc des": "KIW_JKT_SL",
     "division": "KIDS",
     "sub division": "KGW-U"
@@ -762,7 +798,7 @@
     "sub division": "LN&L"
   },
   {
-    "mc code": "122170101",
+    "mc code": "122170103",
     "mc des": "L_CARGO",
     "division": "LADIES",
     "sub division": "LL"
@@ -776,6 +812,18 @@
   {
     "mc code": "121140101",
     "mc des": "L_CO-ORD_SET",
+    "division": "LADIES",
+    "sub division": "LU"
+  },
+  {
+    "mc code": "121140102",
+    "mc des": "L_CO-ORD_SET_KNITS",
+    "division": "LADIES",
+    "sub division": "LU"
+  },
+  {
+    "mc code": "121140103",
+    "mc des": "L_CO-ORD_SET_WOVEN",
     "division": "LADIES",
     "sub division": "LU"
   },
@@ -858,8 +906,14 @@
     "sub division": "LL"
   },
   {
-    "mc code": "122060401",
+    "mc code": "122060404",
     "mc des": "L_JEANS",
+    "division": "LADIES",
+    "sub division": "LL"
+  },
+  {
+    "mc code": "122050103",
+    "mc des": "L_JEGGING",
     "division": "LADIES",
     "sub division": "LL"
   },
@@ -882,7 +936,7 @@
     "sub division": "LK&L"
   },
   {
-    "mc code": "123020101",
+    "mc code": "123020607",
     "mc des": "L_KURTI_ST",
     "division": "LADIES",
     "sub division": "LK&L"
@@ -912,7 +966,7 @@
     "sub division": "LN&L"
   },
   {
-    "mc code": "122040301",
+    "mc code": "122040303",
     "mc des": "L_PLAZO",
     "division": "LADIES",
     "sub division": "LL"
@@ -936,6 +990,12 @@
     "sub division": "LU"
   },
   {
+    "mc code": "122190102",
+    "mc des": "L_SKIRT_LNG_BASIC",
+    "division": "LADIES",
+    "sub division": "LL"
+  },
+  {
     "mc code": "124020101",
     "mc des": "L_SLIPS",
     "division": "LADIES",
@@ -948,7 +1008,13 @@
     "sub division": "LN&L"
   },
   {
-    "mc code": "122150101",
+    "mc code": "121170104",
+    "mc des": "L_T_CROP_TOP_HS",
+    "division": "LADIES",
+    "sub division": "LU"
+  },
+  {
+    "mc code": "122150102",
     "mc des": "L_T_HOT_PANT",
     "division": "LADIES",
     "sub division": "LL"
@@ -984,7 +1050,7 @@
     "sub division": "LU"
   },
   {
-    "mc code": "126200102",
+    "mc code": "126200101",
     "mc des": "LW_BLAZER",
     "division": "LADIES",
     "sub division": "LW"
@@ -1026,7 +1092,7 @@
     "sub division": "LW"
   },
   {
-    "mc code": "126290101",
+    "mc code": "126290106",
     "mc des": "LW_HW_JKT_FS",
     "division": "LADIES",
     "sub division": "LW"
@@ -1044,19 +1110,19 @@
     "sub division": "LW"
   },
   {
-    "mc code": "126240101",
+    "mc code": "126240103",
     "mc des": "LW_KURTI_ST",
     "division": "LADIES",
     "sub division": "LW"
   },
   {
-    "mc code": "126130101",
+    "mc code": "126130102",
     "mc des": "LW_LEGGING",
     "division": "LADIES",
     "sub division": "LW"
   },
   {
-    "mc code": "126300101",
+    "mc code": "126300106",
     "mc des": "LW_LTW_JKT_FS",
     "division": "LADIES",
     "sub division": "LW"
@@ -1128,7 +1194,7 @@
     "sub division": "LW"
   },
   {
-    "mc code": "126020401",
+    "mc code": "126020405",
     "mc des": "LW_TOP",
     "division": "LADIES",
     "sub division": "LW"
@@ -1146,7 +1212,7 @@
     "sub division": "MO"
   },
   {
-    "mc code": "116010201",
+    "mc code": "116010101",
     "mc des": "M_BOXER",
     "division": "MENS",
     "sub division": "MS-IW"
@@ -1158,7 +1224,7 @@
     "sub division": "MS-IW"
   },
   {
-    "mc code": "112050201",
+    "mc code": "112050301",
     "mc des": "M_CARGO",
     "division": "MENS",
     "sub division": "ML"
@@ -1170,7 +1236,7 @@
     "sub division": "MU"
   },
   {
-    "mc code": "112030103",
+    "mc code": "112030104",
     "mc des": "M_F_TRSR",
     "division": "MENS",
     "sub division": "ML"
@@ -1200,7 +1266,7 @@
     "sub division": "MS-U"
   },
   {
-    "mc code": "112020701",
+    "mc code": "112020705",
     "mc des": "M_JEANS",
     "division": "MENS",
     "sub division": "ML"
@@ -1224,7 +1290,7 @@
     "sub division": "MU"
   },
   {
-    "mc code": "112060101",
+    "mc code": "112080101",
     "mc des": "M_K_TRSR",
     "division": "MENS",
     "sub division": "ML"
@@ -1242,7 +1308,7 @@
     "sub division": "MU"
   },
   {
-    "mc code": "115020101",
+    "mc code": "115020103",
     "mc des": "M_MODI_JKT",
     "division": "MENS",
     "sub division": "MO"
@@ -1260,7 +1326,7 @@
     "sub division": "MU"
   },
   {
-    "mc code": "116030104",
+    "mc code": "116030201",
     "mc des": "M_SANDO",
     "division": "MENS",
     "sub division": "MS-U"
@@ -1272,7 +1338,7 @@
     "sub division": "MU"
   },
   {
-    "mc code": "115040501",
+    "mc code": "115040504",
     "mc des": "M_SUIT",
     "division": "MENS",
     "sub division": "MO"
@@ -1284,7 +1350,7 @@
     "sub division": "MS-U"
   },
   {
-    "mc code": "113030110",
+    "mc code": "113030112",
     "mc des": "M_TEES_HS",
     "division": "MENS",
     "sub division": "MS-U"
@@ -1296,7 +1362,7 @@
     "sub division": "MS-U"
   },
   {
-    "mc code": "113080104",
+    "mc code": "113080106",
     "mc des": "M_TEES_SL",
     "division": "MENS",
     "sub division": "MS-U"
@@ -1350,19 +1416,19 @@
     "sub division": "MU"
   },
   {
-    "mc code": "112010601",
+    "mc code": "112010404",
     "mc des": "M_W_TRSR",
     "division": "MENS",
     "sub division": "ML"
   },
   {
-    "mc code": "115010102",
+    "mc code": "115010106",
     "mc des": "MW_BLAZER",
     "division": "MENS",
     "sub division": "MW"
   },
   {
-    "mc code": "117010101",
+    "mc code": "117010104",
     "mc des": "MW_CAP",
     "division": "MENS",
     "sub division": "MW"
@@ -1374,19 +1440,25 @@
     "sub division": "MW"
   },
   {
-    "mc code": "117020101",
+    "mc code": "117020103",
     "mc des": "MW_GLOVES",
     "division": "MENS",
     "sub division": "MW"
   },
   {
-    "mc code": "117180102",
+    "mc code": "117180101",
     "mc des": "MW_HRY_SWTR_FS",
     "division": "MENS",
     "sub division": "MW"
   },
   {
-    "mc code": "117040202",
+    "mc code": "117030106",
+    "mc des": "MW_JKT_FS",
+    "division": "MENS",
+    "sub division": "MW"
+  },
+  {
+    "mc code": "117040205",
     "mc des": "MW_JKT_SL",
     "division": "MENS",
     "sub division": "MW"
@@ -1404,19 +1476,19 @@
     "sub division": "MW"
   },
   {
-    "mc code": "117190101",
+    "mc code": "117190106",
     "mc des": "MW_POLY_JKT_FS",
     "division": "MENS",
     "sub division": "MW"
   },
   {
-    "mc code": "117200101",
+    "mc code": "117200104",
     "mc des": "MW_PU_JKT_FS",
     "division": "MENS",
     "sub division": "MW"
   },
   {
-    "mc code": "117060102",
+    "mc code": "117060106",
     "mc des": "MW_PYJAMA",
     "division": "MENS",
     "sub division": "MW"
@@ -1434,19 +1506,19 @@
     "sub division": "MW"
   },
   {
-    "mc code": "117070301",
+    "mc code": "117070302",
     "mc des": "MW_SWTR_FS",
     "division": "MENS",
     "sub division": "MW"
   },
   {
-    "mc code": "117090301",
+    "mc code": "117090311",
     "mc des": "MW_TEES_FS",
     "division": "MENS",
     "sub division": "MW"
   },
   {
-    "mc code": "117210101",
+    "mc code": "117210104",
     "mc des": "MW_TEES_HUD_FS",
     "division": "MENS",
     "sub division": "MW"
@@ -1458,7 +1530,7 @@
     "sub division": "MW"
   },
   {
-    "mc code": "117110201",
+    "mc code": "117110202",
     "mc des": "MW_THRM_LOWER",
     "division": "MENS",
     "sub division": "MW"
@@ -1470,7 +1542,7 @@
     "sub division": "MW"
   },
   {
-    "mc code": "117120401",
+    "mc code": "117120403",
     "mc des": "MW_TRACK_SUIT",
     "division": "MENS",
     "sub division": "MW"
@@ -1482,7 +1554,7 @@
     "sub division": "MW"
   },
   {
-    "mc code": "117030202",
+    "mc code": "117160201",
     "mc des": "MW_WNDCHTR_JKT_FS",
     "division": "MENS",
     "sub division": "MW"
@@ -1494,7 +1566,7 @@
     "sub division": "KB-L"
   },
   {
-    "mc code": "131680101",
+    "mc code": "131680301",
     "mc des": "YB_CRG",
     "division": "KIDS",
     "sub division": "KB-L"
@@ -1542,7 +1614,7 @@
     "sub division": "KB-U"
   },
   {
-    "mc code": "131380101",
+    "mc code": "131380201",
     "mc des": "YB_SHIRT_HS",
     "division": "KIDS",
     "sub division": "KB-U"
@@ -1584,7 +1656,7 @@
     "sub division": "KB-U"
   },
   {
-    "mc code": "131720101",
+    "mc code": "131720102",
     "mc des": "YB_TEES_HD_FS",
     "division": "KIDS",
     "sub division": "KB-U"
@@ -1650,7 +1722,7 @@
     "sub division": "KBW-U"
   },
   {
-    "mc code": "132210101",
+    "mc code": "132210106",
     "mc des": "YBW_T_SHIRT_HD_FS",
     "division": "KIDS",
     "sub division": "KBW-U"
@@ -1680,7 +1752,7 @@
     "sub division": "KBW-U"
   },
   {
-    "mc code": "133840201",
+    "mc code": "133840101",
     "mc des": "YG_CARGO",
     "division": "KIDS",
     "sub division": "KG-L"
@@ -1724,6 +1796,18 @@
   {
     "mc code": "133180102",
     "mc des": "YG_JEANS",
+    "division": "KIDS",
+    "sub division": "KG-L"
+  },
+  {
+    "mc code": "133610301",
+    "mc des": "YG_N_SUIT_FS",
+    "division": "KIDS",
+    "sub division": "KG-L"
+  },
+  {
+    "mc code": "133620301",
+    "mc des": "YG_N_SUIT_HS",
     "division": "KIDS",
     "sub division": "KG-L"
   },
@@ -1794,20 +1878,26 @@
     "sub division": "KG-U"
   },
   {
-    "mc code": "134150102",
+    "mc code": "134150101",
     "mc des": "YGW_BLAZER",
     "division": "KIDS",
     "sub division": "KGW-U"
   },
   {
-    "mc code": "134160102",
+    "mc code": "134160101",
     "mc des": "YGW_FLC_TOP",
     "division": "KIDS",
     "sub division": "KGW-U"
   },
   {
-    "mc code": "134170101",
+    "mc code": "134170301",
     "mc des": "YGW_JKT_FS",
+    "division": "KIDS",
+    "sub division": "KGW-U"
+  },
+  {
+    "mc code": "134180301",
+    "mc des": "YGW_JKT_SL",
     "division": "KIDS",
     "sub division": "KGW-U"
   },
@@ -1824,8 +1914,20 @@
     "sub division": "KGW-L"
   },
   {
-    "mc code": "134250201",
+    "mc code": "134250202",
     "mc des": "YGW_SKEEVY",
+    "division": "KIDS",
+    "sub division": "KGW-U"
+  },
+  {
+    "mc code": "134220301",
+    "mc des": "YGW_SWEATER_FS",
+    "division": "KIDS",
+    "sub division": "KGW-U"
+  },
+  {
+    "mc code": "134230301",
+    "mc des": "YGW_SWEATER_SL",
     "division": "KIDS",
     "sub division": "KGW-U"
   },
