@@ -115,6 +115,13 @@ EXTRACTION PROCESS:
 3. HANDLE MISSING VALUES: If truly not visible/determinable, use null
 4. PROVIDE CONFIDENCE: Rate each extraction 0-100%
 
+FABRIC_MAIN_MVGR EXTRACTION (REQUIRED):
+• You have detailed fabric classification guidance above - use it!
+• Examine visible fabric characteristics (patterns, weave, texture, design)
+• Match observations to the provided classification options
+• Provide 65-90% confidence for your fabric classification
+• Do NOT use null if the fabric is visible - provide your best classification
+
 NULL VALUE HANDLING:
 • "no_packet", "no_placket", "no plackets" → Use null
 • "not visible", "cannot determine" → Use null

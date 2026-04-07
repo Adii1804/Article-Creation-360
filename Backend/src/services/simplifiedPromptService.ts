@@ -64,6 +64,13 @@ CRITICAL RULES:
 4. For each attribute, provide your confidence score (0-100)
 5. Be honest about uncertainty - it's better to leave blank than guess
 
+FABRIC CLASSIFICATION:
+- You have been provided detailed fabric classification guidance above
+- For fabric_main_mvgr, examine the garment's visible characteristics (print patterns, weave type, solidity, stripes, etc.)
+- Match what you see to the classification options provided
+- If you can identify a fabric type from the detailed list, provide at least 65% confidence
+- If the fabric type is unclear, leave as null rather than guessing
+
 REQUIRED ATTRIBUTES:
 ${attributeList}
 ${categoryContext}
@@ -74,6 +81,9 @@ EXTRACTION GUIDELINES:
 - Use simple, descriptive values (e.g., "round neck", "long sleeve", "regular fit")
 - Provide confidence scores honestly based on visibility
 - If an attribute is not visible or you're uncertain (< 65% confidence), set rawValue to null
+- HOWEVER: For fabric_main_mvgr specifically, you have detailed guidance above, so attempt a classification
+  - If you can match visible patterns/weave to the classification list, provide 70-90% confidence
+  - Only return null if the fabric is completely obscured or unidentifiable
 
 ⚠️ CRITICAL - DO NOT REPEAT ATTRIBUTE NAMES AS VALUES:
 - WRONG: "neck": { "rawValue": "Neck" } ❌

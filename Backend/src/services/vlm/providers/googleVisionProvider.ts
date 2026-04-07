@@ -533,11 +533,18 @@ STEP 3: TAG/LABEL READING (Critical for metadata)
 │   • 3 parts → yarn_01 = first; yarn_02 = second; fabric_main_mvgr = last
 │   • Each part MUST match the allowed values for its attribute exactly; otherwise return null for that part
 │   • If a token is not in the allowed list (e.g., abbreviations like "IMP"), return null (do not guess)
-│   • YARN_01/YARN_02/FABRIC_MAIN_MVGR are OCR-ONLY. If no FAB/FABRIC line exists → set all three to null.
 │   • If FAB contains "IMP" or "IMPORTED" → yarn_01 MUST be IMP (Imported). Do NOT output CP or any other yarn.
 │     If IMP is not in allowed values, return null for yarn_01.
 │   • If FAB indicates Imported, set weave = null (do NOT guess weave).
 │   • If FAB has "LCE" or "LCR" in brackets, set lycra_non_lycra = LCR (only if LCR is an allowed value).
+├─ FABRIC_MAIN_MVGR EXTRACTION (VISUAL FALLBACK):
+│   • PRIORITY 1: If FAB/FABRIC line exists on board, extract fabric_main_mvgr from it as above (OCR first)
+│   • PRIORITY 2: If NO FAB/FABRIC line exists on board, use VISUAL ANALYSIS:
+│     - Examine the garment's visible fabric characteristics (print patterns, weave type, texture, design)
+│     - Use the detailed FABRIC CLASSIFICATION GUIDANCE provided above  
+│     - Match visible characteristics to fabric_main_mvgr classification options
+│     - Provide 65-85% confidence for visual fabric classification
+│     - ONLY return null if fabric is completely obscured or unidentifiable
 ├─ Return division/gsm/yarn_01/yarn_02/fabric_main_mvgr under the attributes section using those keys
 ├─ Look for BRAND LABELS on garment
 └─ Check CARE LABELS and SIZE TAGS
@@ -1038,7 +1045,9 @@ IMPORTANT:
         'size': 'size',
         'majorCategory': 'major_category',
         'division': 'division',
-        'gsm': 'gsm'
+        'gsm': 'gsm',
+        'g_weight': 'weight',
+        'weight': 'weight'
       };
 
       const mergeNonNull = (base: Record<string, any>, incoming?: Record<string, any> | null) => {
@@ -1067,6 +1076,7 @@ IMPORTANT:
         rate: ['rate', 'price', 'mrp', 'cost'],
         size: ['size', 'sizes', 'size_range', 'size range', 'size-range', 'siz'],
         major_category: ['majorcategory', 'major_category', 'major category', 'category'],
+        gsm: ['gsm', 'gsm_value', 'gsm value', 'g/m2', 'g/m²', 'gram per square meter'],
         weight: ['weight', 'g_weight', 'g-weight', 'gweight', 'numeric/g', 'numeric / g', 'num/g']
       };
 
@@ -1171,6 +1181,20 @@ IMPORTANT:
             isNewDiscovery: false,
             mappingConfidence: 95,
             reasoning: 'G-Weight extracted from white board/tag OCR (numeric-only)'
+          } : null;
+          continue;
+        }
+
+        if (key === 'gsm') {
+          const ocrGsm = mergedMetadata?.gsm || mergedMetadata?.['gsm'] || metadataLower['gsm'] || null;
+          const numericGsm = ocrGsm ? extractNumericWeight(ocrGsm) : null;
+          attributes[key] = numericGsm ? {
+            rawValue: numericGsm,
+            schemaValue: numericGsm,
+            visualConfidence: 95,
+            isNewDiscovery: false,
+            mappingConfidence: 95,
+            reasoning: 'GSM extracted from white board/tag OCR (numeric-only)'
           } : null;
           continue;
         }

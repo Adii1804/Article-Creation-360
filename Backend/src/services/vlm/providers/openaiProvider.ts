@@ -157,6 +157,16 @@ CRITICAL RULES:
 4. Better to guess with 60% confidence than leave null
 5. Only null if attribute doesn't apply to this garment type
 
+FABRIC_MAIN_MVGR EXTRACTION (REQUIRED):
+• You have detailed fabric classification guidance above
+• Examine the garment's VISIBLE fabric characteristics:
+  - Print patterns (solid, striped, patterned, printed, checks, etc.)
+  - Weave type (tight, loose, textured, smooth)
+  - Design elements (geometric, floral, abstract, etc.)
+• Match what you observe to the classification options provided
+• Provide 65-90% confidence for your fabric classification
+• Do NOT leave this null if the fabric is visible - make your best classification
+
 JSON RESPONSE FORMAT:
 {
   "metadata": {

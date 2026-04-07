@@ -81,6 +81,12 @@ INSTRUCTIONS:
 3. For text/number attributes, provide precise descriptive values
 4. If an attribute is not visible/applicable, use null
 5. Provide confidence scores (0-100) for visual attributes
+6. FOR FABRIC_MAIN_MVGR SPECIFICALLY:
+   - Use the detailed fabric classification guidance provided above
+   - Examine visible patterns, weave type, solidity, and texture
+   - Match what you see to the provided classification options
+   - Provide 65-90% confidence if you can identify the fabric type from the list
+   - Only use null if the fabric is completely obscured or unidentifiable
 
 ⚠️ CRITICAL - DO NOT USE ATTRIBUTE NAMES AS VALUES:
 - Extract actual observed values from the image
