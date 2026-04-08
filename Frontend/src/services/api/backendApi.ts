@@ -1,6 +1,7 @@
 
 import type { SchemaItem, EnhancedExtractionResult } from '../../types/extraction/ExtractionTypes';
 import { APP_CONFIG } from '../../constants/app/config';
+import { clearAuthSession, redirectToLoginOnce } from '../../shared/utils/auth/navigation';
 
 export interface BackendExtractionRequest {
   image: string; // base64 encoded image
@@ -53,12 +54,8 @@ export class BackendApiService {
   private handleAuthError(response: Response): void {
     if (response.status === 401) {
       console.warn('🔐 Authentication required - redirecting to login');
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('user');
-
-      if (!window.location.pathname.includes('/login')) {
-        window.location.href = '/login';
-      }
+      clearAuthSession();
+      redirectToLoginOnce();
     } else if (response.status === 403) {
       console.error('🚫 Access denied - insufficient permissions');
     }

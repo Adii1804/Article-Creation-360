@@ -4,6 +4,7 @@
  */
 
 import axios from 'axios';
+import { clearAuthSession, redirectToLoginOnce } from '../shared/utils/auth/navigation';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
 
@@ -39,13 +40,8 @@ adminApi.interceptors.response.use(
     if (error.response?.status === 401) {
       // Token expired or invalid - clear and redirect to login
       console.warn('🔐 Authentication failed - redirecting to login');
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('user');
-
-      // Only redirect if not already on login page
-      if (!window.location.pathname.includes('/login')) {
-        window.location.href = '/login';
-      }
+      clearAuthSession();
+      redirectToLoginOnce();
     } else if (error.response?.status === 403) {
       // Forbidden - insufficient permissions
       console.error('🚫 Access denied - insufficient permissions');

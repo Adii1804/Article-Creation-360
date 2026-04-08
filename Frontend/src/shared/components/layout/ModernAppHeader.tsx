@@ -1,6 +1,7 @@
 import { Layout, Button, Space, Dropdown, Avatar } from 'antd';
 import { UserOutlined, LogoutOutlined, SettingOutlined } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
+import { clearAuthSession, redirectToLoginOnce } from '../../utils/auth/navigation';
 
 const { Header } = Layout;
 
@@ -16,10 +17,9 @@ export default function ModernAppHeader({
   onLogout 
 }: ModernAppHeaderProps) {
   const handleLogout = () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
+    clearAuthSession();
     if (onLogout) onLogout();
-    window.location.href = '/login';
+    redirectToLoginOnce();
   };
 
   const userMenu: MenuProps['items'] = [

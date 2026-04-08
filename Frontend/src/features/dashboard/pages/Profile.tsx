@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Card, Descriptions, Button, message, Space } from 'antd';
 import { UserOutlined } from '@ant-design/icons';
 import { BackendApiService } from '../../../services/api/backendApi';
+import { clearAuthSession, redirectToLoginOnce } from '../../../shared/utils/auth/navigation';
 
 const api = new BackendApiService();
 
@@ -27,9 +28,8 @@ export default function Profile() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
-    window.location.href = '/login';
+    clearAuthSession();
+    redirectToLoginOnce();
   };
 
   if (!user && !loading) {

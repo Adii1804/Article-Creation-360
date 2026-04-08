@@ -3,11 +3,12 @@
  * User authentication with Ant Design
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Form, Input, Button, Card, Typography, message } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router-dom';
 import { BackendApiService } from '../../../services/api/backendApi';
+import { clearLoginRedirectFlag } from '../../../shared/utils/auth/navigation';
 
 const { Title, Text } = Typography;
 const api = new BackendApiService();
@@ -15,6 +16,10 @@ const api = new BackendApiService();
 export default function Login() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    clearLoginRedirectFlag();
+  }, []);
 
   const onFinish = async (values: { email: string; password: string }) => {
     setLoading(true);

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Card, Button, Typography, message, Modal, Form, Input, Select, Row, Col, Tabs, DatePicker } from 'antd';
 import { CheckCircleOutlined, CloseCircleOutlined, ReloadOutlined, DownloadOutlined } from '@ant-design/icons';
 import { ApproverTable } from '../components/ApproverTable';
@@ -130,6 +130,7 @@ const SIMPLE_APPROVER_EXPORT_HEADERS = [
 ] as const;
 
 export default function ApproverDashboard() {
+    const hasInitializedRef = useRef(false);
     const [items, setItems] = useState<ApproverItem[]>([]);
     const [attributes, setAttributes] = useState<MasterAttribute[]>([]);
     const [loading, setLoading] = useState(false);
@@ -299,9 +300,14 @@ export default function ApproverDashboard() {
     }, [items, user, statusFilter, divisionFilter, subDivisionFilter, dateRangeFilter, searchText]);
 
     useEffect(() => {
+        if (hasInitializedRef.current) {
+            return;
+        }
+
+        hasInitializedRef.current = true;
         fetchAttributes();
         fetchItems();
-    }, []); // Intentionally run once on mount — filters are applied client-side
+    }, [fetchAttributes, fetchItems]); // Intentionally run once on mount — filters are applied client-side
 
     const buildApproverExportData = useCallback((rows: ApproverItem[]) => {
         return rows.map((row) => {
