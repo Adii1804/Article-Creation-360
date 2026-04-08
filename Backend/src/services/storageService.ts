@@ -238,7 +238,7 @@ export class StorageService {
     }
 
     /**
-     * Generate a signed URL for a private file
+     * Generate a signed URL for a private file in the primary bucket
      * @param key - Object key in R2
      * @param expiresIn - Expiration time in seconds (default: 1 hour)
      */
@@ -263,6 +263,45 @@ export class StorageService {
             console.error('   Error details:', error.message);
             throw new Error(`Failed to generate signed URL: ${error.message}`);
         }
+    }
+
+    /**
+     * Generate a signed URL for a file in the approved (article-master) bucket.
+     * Use this when the approved bucket's public URL is not accessible.
+     * @param key - Object key in the approved bucket (e.g. "ARTICLE123.jpg")
+     * @param expiresIn - Expiration time in seconds (default: 7 days)
+     */
+    async getApprovedSignedUrl(key: string, expiresIn = 604800): Promise<string> {
+        try {
+            const command = new GetObjectCommand({
+                Bucket: this.approvedBucket,
+                Key: key
+            });
+            const signedUrl = await getSignedUrl(this.approvedS3Client, command, { expiresIn });
+
+            if (!signedUrl) {
+                throw new Error('Signed URL generation returned empty result');
+            }
+
+            console.log(`✅ Generated signed URL for approved bucket: ${key} (expires in ${expiresIn}s)`);
+            return signedUrl;
+        } catch (error: any) {
+            console.error('❌ Failed to generate approved signed URL:', error);
+            console.error('   Key:', key);
+            console.error('   Bucket:', this.approvedBucket);
+            console.error('   Error details:', error.message);
+            throw new Error(`Failed to generate approved signed URL: ${error.message}`);
+        }
+    }
+
+    /**
+     * Extracts the object key from an approved bucket public URL.
+     */
+    extractApprovedKeyFromUrl(url: string): string | null {
+        if (!this.approvedPublicUrlBase) return null;
+        const base = this.approvedPublicUrlBase.replace(/\/$/, '');
+        if (!url.startsWith(base + '/')) return null;
+        return url.slice(base.length + 1) || null;
     }
 
     /**

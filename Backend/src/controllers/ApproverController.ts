@@ -985,18 +985,28 @@ export class ApproverController {
 
             const storedUrl = record.imageUrl;
 
-            // If it's already a permanent public URL, return it as-is
             const publicBase = (process.env.R2_PUBLIC_URL_BASE || '').replace(/\/$/, '');
-            const approvedBase = (process.env.APPROVED_R2_PUBLIC_URL_BASE || publicBase).replace(/\/$/, '');
+            const approvedBase = (process.env.APPROVED_R2_PUBLIC_URL_BASE || '').replace(/\/$/, '');
 
-            if (
-                (publicBase && storedUrl.startsWith(publicBase)) ||
-                (approvedBase && storedUrl.startsWith(approvedBase))
-            ) {
+            // If the URL is from the approved (article-master) bucket, always generate
+            // a fresh signed URL — the public URL may not be accessible if the bucket
+            // does not have public access enabled in Cloudflare.
+            if (approvedBase && storedUrl.startsWith(approvedBase + '/')) {
+                const approvedKey = storageService.extractApprovedKeyFromUrl(storedUrl);
+                if (approvedKey) {
+                    const signedUrl = await storageService.getApprovedSignedUrl(approvedKey, 3600);
+                    return res.json({ url: signedUrl });
+                }
+                // Key extraction failed — return as-is
                 return res.json({ url: storedUrl });
             }
 
-            // Extract the object key from the stored URL (works for signed & public R2 URLs)
+            // If it's a primary bucket public URL, return it as-is (bucket is public)
+            if (publicBase && storedUrl.startsWith(publicBase + '/')) {
+                return res.json({ url: storedUrl });
+            }
+
+            // Extract the object key from a signed URL (works for signed R2 URLs)
             let key: string | null = null;
             try {
                 const parsed = new URL(storedUrl);
