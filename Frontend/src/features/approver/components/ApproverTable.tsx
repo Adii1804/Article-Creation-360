@@ -239,6 +239,12 @@ interface ApproverTableProps {
     onSave: (item: ApproverItem) => void;
     attributes?: MasterAttribute[];
     user?: any;
+    serverPagination?: {
+        total: number;
+        current: number;
+        pageSize: number;
+        onChange: (page: number) => void;
+    };
 }
 
 // Returns density config based on device pixel ratio (accounts for screen DPI + browser zoom).
@@ -270,6 +276,7 @@ export const ApproverTable: React.FC<ApproverTableProps> = ({
     onSave,
     attributes = [],
     user,
+    serverPagination,
 }) => {
     const [remarksModalOpen, setRemarksModalOpen] = useState(false);
     const [activeRemarks, setActiveRemarks] = useState('');
@@ -744,7 +751,15 @@ export const ApproverTable: React.FC<ApproverTableProps> = ({
                     dataSource={items}
                     loading={loading}
                     size={density.tableSize}
-                    pagination={{
+                    pagination={serverPagination ? {
+                        total: serverPagination.total,
+                        current: serverPagination.current,
+                        pageSize: serverPagination.pageSize,
+                        onChange: serverPagination.onChange,
+                        showSizeChanger: false,
+                        showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+                        position: ['bottomRight'],
+                    } : {
                         pageSize: 50,
                         showSizeChanger: false,
                         showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,

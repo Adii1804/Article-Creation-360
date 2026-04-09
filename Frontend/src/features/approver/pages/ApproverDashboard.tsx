@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, Button, Typography, message, Modal, Form, Input, Select, Row, Col, Tabs, DatePicker } from 'antd';
 import { CheckCircleOutlined, CloseCircleOutlined, ReloadOutlined, DownloadOutlined } from '@ant-design/icons';
 import { ApproverTable } from '../components/ApproverTable';
@@ -129,13 +129,16 @@ const SIMPLE_APPROVER_EXPORT_HEADERS = [
     'Created Date'
 ] as const;
 
+const PAGE_SIZE = 200;
+
 export default function ApproverDashboard() {
-    const hasInitializedRef = useRef(false);
     const [items, setItems] = useState<ApproverItem[]>([]);
     const [attributes, setAttributes] = useState<MasterAttribute[]>([]);
     const [loading, setLoading] = useState(false);
     const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
     const [user, setUser] = useState<any>(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalCount, setTotalCount] = useState(0);
 
     // Filters
     const [statusFilter, setStatusFilter] = useState<string[]>(['ALL']);
@@ -190,15 +193,25 @@ export default function ApproverDashboard() {
         }
     }, []);
 
-    const fetchItems = useCallback(async () => {
+    // Server-side pagination + filtering. Recreated whenever any filter changes,
+    // which causes the useEffect below to re-fire and reset to page 1.
+    const fetchItems = useCallback(async (page = 1) => {
         setLoading(true);
+        setCurrentPage(page);
         try {
             const token = localStorage.getItem('authToken');
-            // Fetch all RBAC-scoped records once — filtering is done client-side
-            const response = await fetch(`${APP_CONFIG.api.baseURL}/approver/items?limit=10000&status=ALL`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
+            const params = new URLSearchParams();
+            params.set('page', String(page));
+            params.set('limit', String(PAGE_SIZE));
+            params.set('status', statusFilter.includes('ALL') ? 'ALL' : statusFilter.join(','));
+            if (divisionFilter !== 'ALL') params.set('division', divisionFilter);
+            if (subDivisionFilter !== 'ALL') params.set('subDivision', subDivisionFilter);
+            if (searchText) params.set('search', searchText);
+            if (dateRangeFilter?.[0]) params.set('startDate', dateRangeFilter[0].startOf('day').toISOString());
+            if (dateRangeFilter?.[1]) params.set('endDate', dateRangeFilter[1].endOf('day').toISOString());
+
+            const response = await fetch(`${APP_CONFIG.api.baseURL}/approver/items?${params}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
             });
 
             if (!response.ok) throw new Error('Failed to fetch items');
@@ -209,105 +222,19 @@ export default function ApproverDashboard() {
                 mcCode: item.mcCode || inferMcCode(item.majorCategory)
             }));
             setItems(withMcCode);
+            setTotalCount(result.meta?.total || 0);
         } catch (error) {
             message.error('Failed to load items');
         } finally {
             setLoading(false);
         }
-    }, []); // No filter dependencies — filters are applied client-side
+    }, [statusFilter, divisionFilter, subDivisionFilter, searchText, dateRangeFilter]);
 
-    // Client-side filtering — instant, no API calls, no race conditions
-    const filteredItems = useMemo(() => {
-        let result = items;
+    useEffect(() => { fetchAttributes(); }, [fetchAttributes]);
 
-        // RBAC enforcement: APPROVER sees only their assigned division + sub-division
-        if (user?.role === 'APPROVER') {
-            if (user.division) {
-                const userDivisions = getDivisionVariants(user.division);
-                if (userDivisions.length > 0) {
-                    result = result.filter(item =>
-                        userDivisions.includes(normalizeText(item.division))
-                    );
-                }
-            }
-            if (user.subDivision) {
-                const userSubDivs = getSubDivisionVariants(user.subDivision);
-                if (userSubDivs.length > 0) {
-                    // Also show articles with null/empty subDivision (not yet categorised)
-                    result = result.filter(item =>
-                        !item.subDivision || userSubDivs.includes(normalizeText(item.subDivision))
-                    );
-                }
-            }
-        }
-
-        // RBAC enforcement: CATEGORY_HEAD sees only their assigned division
-        if (user?.role === 'CATEGORY_HEAD' && user.division) {
-            const userDivisions = getDivisionVariants(user.division);
-            if (userDivisions.length > 0) {
-                result = result.filter(item =>
-                    userDivisions.includes(normalizeText(item.division))
-                );
-            }
-        }
-
-        // Status filter (user-controlled)
-        if (!statusFilter.includes('ALL') && statusFilter.length > 0) {
-            result = result.filter(item => statusFilter.includes(item.approvalStatus || ''));
-        }
-
-        // Division filter (admin: all divisions; non-admin: only their assigned divisions when >1)
-        if (divisionFilter !== 'ALL') {
-            const divisionVariants = getDivisionVariants(divisionFilter);
-            result = result.filter(item =>
-                divisionVariants.includes(normalizeText(item.division))
-            );
-        }
-
-        // Sub-division filter (admin: all sub-divisions; non-admin: only their assigned sub-divisions when >1)
-        if (subDivisionFilter !== 'ALL') {
-            result = result.filter(item =>
-                normalizeText(item.subDivision) === normalizeText(subDivisionFilter)
-            );
-        }
-
-        // Created date filter (inclusive of the full end day)
-        if (dateRangeFilter?.[0] || dateRangeFilter?.[1]) {
-            const startDate = dateRangeFilter?.[0]?.startOf('day').valueOf() ?? null;
-            const endDate = dateRangeFilter?.[1]?.endOf('day').valueOf() ?? null;
-
-            result = result.filter(item => {
-                const createdAt = new Date(item.createdAt).getTime();
-                if (Number.isNaN(createdAt)) return false;
-                if (startDate !== null && createdAt < startDate) return false;
-                if (endDate !== null && createdAt > endDate) return false;
-                return true;
-            });
-        }
-
-        // Search filter
-        if (searchText) {
-            const q = searchText.toLowerCase();
-            result = result.filter(item =>
-                item.articleNumber?.toLowerCase().includes(q) ||
-                item.vendorName?.toLowerCase().includes(q) ||
-                item.designNumber?.toLowerCase().includes(q) ||
-                item.pptNumber?.toLowerCase().includes(q)
-            );
-        }
-
-        return result;
-    }, [items, user, statusFilter, divisionFilter, subDivisionFilter, dateRangeFilter, searchText]);
-
-    useEffect(() => {
-        if (hasInitializedRef.current) {
-            return;
-        }
-
-        hasInitializedRef.current = true;
-        fetchAttributes();
-        fetchItems();
-    }, [fetchAttributes, fetchItems]); // Intentionally run once on mount — filters are applied client-side
+    // Fires on mount and whenever fetchItems is recreated (i.e. any filter changes).
+    // Always resets to page 1 so filter results start from the beginning.
+    useEffect(() => { fetchItems(1); }, [fetchItems]);
 
     const buildApproverExportData = useCallback((rows: ApproverItem[]) => {
         return rows.map((row) => {
@@ -389,7 +316,7 @@ export default function ApproverDashboard() {
             return;
         }
 
-        const selectedItems = filteredItems.filter((item) => selectedRowKeys.includes(item.id));
+        const selectedItems = items.filter((item) => selectedRowKeys.includes(item.id));
         if (selectedItems.length === 0) {
             message.warning('No selected articles available to export');
             return;
@@ -397,14 +324,14 @@ export default function ApproverDashboard() {
 
         const exportData = buildApproverExportData(selectedItems);
         await exportToExcel(exportData, [...SIMPLE_APPROVER_EXPORT_HEADERS], [], 'Article Creation');
-    }, [buildApproverExportData, filteredItems, selectedRowKeys]);
+    }, [buildApproverExportData, items, selectedRowKeys]);
 
-    // Only PENDING items from the selection are eligible for approve/reject actions
+    // Only PENDING items from the current page selection are eligible for approve/reject actions
     const pendingSelectedKeys = useMemo(() =>
         selectedRowKeys.filter(key =>
-            filteredItems.find(item => item.id === key)?.approvalStatus === 'PENDING'
+            items.find(item => item.id === key)?.approvalStatus === 'PENDING'
         ),
-        [selectedRowKeys, filteredItems]
+        [selectedRowKeys, items]
     );
 
     const handleApprove = async () => {
@@ -438,7 +365,7 @@ export default function ApproverDashboard() {
                     }
 
                     setSelectedRowKeys([]);
-                    fetchItems();
+                    fetchItems(1);
                 } catch (error) {
                     message.error('Failed to approve items');
                 }
@@ -470,7 +397,7 @@ export default function ApproverDashboard() {
 
                     message.success('Items rejected');
                     setSelectedRowKeys([]);
-                    fetchItems();
+                    fetchItems(1);
                 } catch (error) {
                     message.error('Failed to reject items');
                 }
@@ -602,7 +529,7 @@ export default function ApproverDashboard() {
             message.success('Item updated');
             setIsEditModalOpen(false);
             setEditingItem(null);
-            fetchItems();
+            fetchItems(currentPage);
         } catch (error) {
             message.error(error instanceof Error ? error.message : 'Failed to update item');
         }
@@ -930,7 +857,7 @@ export default function ApproverDashboard() {
                         </Col>
 
                         <Col xs={24} sm={24} md={5} style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, whiteSpace: 'nowrap' }}>
-                            <Button icon={<ReloadOutlined />} onClick={fetchItems}>Refresh</Button>
+                            <Button icon={<ReloadOutlined />} onClick={() => fetchItems(currentPage)}>Refresh</Button>
                             <Button icon={<DownloadOutlined />} onClick={handleExportSelected} disabled={selectedRowKeys.length === 0}>
                                 Excel ({selectedRowKeys.length})
                             </Button>
@@ -963,13 +890,22 @@ export default function ApproverDashboard() {
                 styles={{ body: { padding: '6px 8px' } }}
             >
                     <ApproverTable
-                        items={filteredItems}
+                        items={items}
                         loading={loading}
                         selectedRowKeys={selectedRowKeys}
                         onSelectionChange={setSelectedRowKeys}
                         onEdit={handleEdit}
                         attributes={attributes}
                         user={user}
+                        serverPagination={{
+                            total: totalCount,
+                            current: currentPage,
+                            pageSize: PAGE_SIZE,
+                            onChange: (page) => {
+                                setSelectedRowKeys([]);
+                                fetchItems(page);
+                            }
+                        }}
                         onSave={async (row) => {
                         // Optimistic update
                         const newData = [...items];
@@ -1016,7 +952,7 @@ export default function ApproverDashboard() {
                             message.success('Updated');
                         } catch (error) {
                             message.error('Failed to update');
-                            fetchItems(); // Revert on failure
+                            fetchItems(currentPage); // Revert on failure
                         }
                         }}
                     />

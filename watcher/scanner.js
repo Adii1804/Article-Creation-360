@@ -1,6 +1,10 @@
 const fs = require('fs');
 const path = require('path');
-const { WATCH_ROOT, VALID_DIVISIONS, IMAGE_EXTENSIONS } = require('./config');
+const {
+  WATCH_ROOT, VALID_DIVISIONS, IMAGE_EXTENSIONS, FLAT_MODE,
+  DEFAULT_DIVISION, DEFAULT_SUB_DIVISION, DEFAULT_VENDOR_NAME,
+  DEFAULT_VENDOR_CODE, DEFAULT_MAJOR_CATEGORY, DEFAULT_MC_CODE,
+} = require('./config');
 const { parsePath } = require('./pathParser');
 const { has: alreadyProcessed, mark } = require('./processedTracker');
 const { submitImage } = require('./apiClient');
@@ -82,6 +86,94 @@ function parseDateArg() {
 }
 
 async function runScan() {
+  if (FLAT_MODE) {
+    return runFlatScan();
+  }
+  return runHierarchyScan();
+}
+
+// ── FLAT MODE ────────────────────────────────────────────────────────────────
+// Collect every image directly under WATCH_ROOT (and sub-folders) and submit
+// with whatever DEFAULT_* metadata was configured in .env.
+async function runFlatScan() {
+  log.info('=== Flat-mode scan started ===');
+  log.info(`Root: ${WATCH_ROOT}`);
+  log.info(`Default division: "${DEFAULT_DIVISION || '(none)'}" | Vendor: "${DEFAULT_VENDOR_NAME || '(none)'}" | MC: "${DEFAULT_MAJOR_CATEGORY || '(none)'}"`);
+
+  if (!fs.existsSync(WATCH_ROOT)) {
+    log.error(`Watch root not accessible: ${WATCH_ROOT}`);
+    return;
+  }
+
+  const images = collectImages(WATCH_ROOT);
+  let totalFound = images.length;
+  let totalNew = 0, totalOk = 0, totalDup = 0, totalFail = 0;
+
+  log.info(`Images found: ${totalFound}`);
+
+  for (const imgPath of images) {
+    if (alreadyProcessed(imgPath)) {
+      totalDup++;
+      continue;
+    }
+
+    totalNew++;
+    const imageName = path.basename(imgPath);
+    log.info(`Processing: ${imgPath}`);
+
+    // Flat metadata — no path parsing, use .env defaults
+    const meta = {
+      division:            DEFAULT_DIVISION,
+      vendorName:          DEFAULT_VENDOR_NAME,
+      vendorCode:          DEFAULT_VENDOR_CODE,
+      majorCategoryFolder: DEFAULT_MAJOR_CATEGORY,
+      imageName,
+    };
+    const catData = DEFAULT_MC_CODE || DEFAULT_SUB_DIVISION
+      ? { sub_division: DEFAULT_SUB_DIVISION, mc_code: DEFAULT_MC_CODE }
+      : null;
+
+    try {
+      const result = await submitImage(imgPath, meta, catData);
+
+      if (result?.success) {
+        log.ok(`  Submitted OK — jobId: ${result.data?.persistence?.jobId}`);
+        mark(imgPath);
+        totalOk++;
+      } else if (result?.code === 'DUPLICATE') {
+        log.warn(`  Already in DB (DUPLICATE) — marking as processed`);
+        mark(imgPath);
+        totalDup++;
+      } else {
+        log.error(`  Backend returned failure:`, JSON.stringify(result));
+        totalFail++;
+      }
+    } catch (err) {
+      const status = err?.response?.status;
+      const data   = err?.response?.data;
+
+      if (status === 409 && data?.code === 'DUPLICATE') {
+        log.warn(`  Already in DB (409 DUPLICATE) — marking as processed`);
+        mark(imgPath);
+        totalDup++;
+      } else {
+        log.error(`  Request failed (HTTP ${status || 'N/A'}):`, err.message);
+        if (data) log.error(`  Response:`, JSON.stringify(data));
+        totalFail++;
+      }
+    }
+  }
+
+  log.info('=== Flat-mode scan complete ===');
+  log.info(`  Found:     ${totalFound}`);
+  log.info(`  New:       ${totalNew}`);
+  log.info(`  Submitted: ${totalOk}`);
+  log.info(`  Duplicate: ${totalDup}`);
+  log.info(`  Failed:    ${totalFail}`);
+}
+
+// ── HIERARCHY MODE (original) ────────────────────────────────────────────────
+async function runHierarchyScan() {
   const overrideDate = parseDateArg();
   const todayFolder = getTodayFolderName(overrideDate);
 

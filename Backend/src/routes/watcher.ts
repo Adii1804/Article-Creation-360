@@ -6,13 +6,24 @@
 
 import { Router } from 'express';
 import multer from 'multer';
+import os from 'os';
+import path from 'path';
 import { EnhancedExtractionController } from '../controllers/enhancedExtractionController';
 
 const router = Router();
 const enhancedController = new EnhancedExtractionController();
 
+// Use disk storage so that large batches (24k+) don't exhaust Node.js heap.
+// Each file is written to the OS temp directory and cleaned up by the controller
+// after the R2 upload completes.
 const upload = multer({
-  storage: multer.memoryStorage(),
+  storage: multer.diskStorage({
+    destination: os.tmpdir(),
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname) || '.jpg';
+      cb(null, `watcher-${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
+    },
+  }),
   limits: {
     fileSize: parseInt(process.env.MAX_FILE_SIZE || '15728640'), // 15MB
   },

@@ -107,8 +107,12 @@ app.use(cors({
   maxAge: 3600
 }));
 
-// Apply general rate limiting to all API routes (after CORS so rate-limit responses include CORS headers)
-app.use('/api/', limiter);
+// Apply general rate limiting to all API routes EXCEPT watcher (which processes
+// 24k+ images one-by-one and must not be throttled by the per-IP cap).
+app.use('/api/', (req, res, next) => {
+  if (req.path.startsWith('/watcher/')) return next();
+  return limiter(req, res, next);
+});
 
 // Body parsing middleware
 app.use(express.json({ limit: '50mb' }));

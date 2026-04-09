@@ -1,10 +1,31 @@
+import fs from 'fs';
+
 export class ImageProcessor {
+  /**
+   * Returns the raw buffer for a multer file, reading from disk if the file
+   * was stored with diskStorage (file.buffer is undefined in that case).
+   */
+  static getBuffer(file: Express.Multer.File): Buffer {
+    if (file.buffer) return file.buffer;
+    if (file.path) return fs.readFileSync(file.path);
+    throw new Error('Multer file has neither buffer nor path — cannot read image data.');
+  }
+
+  /**
+   * Deletes the temp file when disk storage was used. Safe to call even for
+   * memory-storage files (no-op when file.path is absent).
+   */
+  static cleanup(file: Express.Multer.File): void {
+    if (file.path) {
+      try { fs.unlinkSync(file.path); } catch { /* already gone — ignore */ }
+    }
+  }
+
   static async processImageToBase64(file: Express.Multer.File): Promise<string> {
     try {
-      const imageBuffer = file.buffer;
+      const imageBuffer = ImageProcessor.getBuffer(file);
       const base64String = imageBuffer.toString('base64');
       const mimeType = file.mimetype;
-      
       return `data:${mimeType};base64,${base64String}`;
     } catch (error) {
       throw new Error(`Failed to process image: ${error instanceof Error ? error.message : 'Unknown error'}`);

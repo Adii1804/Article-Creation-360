@@ -610,7 +610,7 @@ export class EnhancedExtractionController {
 
       try {
         const uploadResult = await storageService.uploadFile(
-          req.file.buffer,
+          ImageProcessor.getBuffer(req.file),
           req.file.originalname, // Pass original name for UUID naming
           req.file.mimetype,
           'fashion-images'
@@ -696,6 +696,9 @@ export class EnhancedExtractionController {
     } catch (error) {
       console.error('❌ Enhanced VLM extraction failed:', error);
       next(error);
+    } finally {
+      // Clean up disk-stored temp file (watcher uses diskStorage; no-op for memoryStorage)
+      if (req.file) ImageProcessor.cleanup(req.file);
     }
   };
 
