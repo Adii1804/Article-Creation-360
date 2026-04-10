@@ -39,6 +39,7 @@ const NEW_VALUES: Record<string, { shortForm: string; fullForm: string }[]> = {
     { shortForm: 'SKIN_PU', fullForm: 'SKIN PU' },
     { shortForm: 'ML_TPU',  fullForm: 'MALAI TUP' },
     { shortForm: 'CORD',    fullForm: 'CORDURORY' },
+    { shortForm: 'LED',     fullForm: 'LED' },
   ],
 
   PATTERN: [
@@ -55,9 +56,7 @@ const NEW_VALUES: Record<string, { shortForm: string; fullForm: string }[]> = {
     { shortForm: 'NK_FRL', fullForm: 'NECK FRILL' },
   ],
 
-  M_FAB2: [
-    { shortForm: 'LED', fullForm: 'LED' },
-  ],
+  M_FAB2: [],
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
