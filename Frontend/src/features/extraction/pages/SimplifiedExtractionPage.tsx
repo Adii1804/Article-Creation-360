@@ -120,7 +120,6 @@ const BASE_SIMPLIFIED_SCHEMA: SchemaItem[] = [
   { key: 'rate', label: 'Rate/Price', type: 'text' },
   { key: 'mrp', label: 'MRP', type: 'text' },
   { key: 'size', label: 'Size', type: 'text' },
-  { key: 'colour', label: 'Colour', type: 'select' },
   { key: 'pattern', label: 'Pattern', type: 'select' },
   { key: 'fit', label: 'Fit', type: 'select' },
   { key: 'wash', label: 'Wash', type: 'select' },

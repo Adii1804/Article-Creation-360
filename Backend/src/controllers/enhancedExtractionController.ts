@@ -305,9 +305,39 @@ export class EnhancedExtractionController {
         await flatteningService.flattenExtractionResults(job.id);
         const flatRow = await prisma.extractionResultFlat.findUnique({
           where: { jobId: job.id },
-          select: { id: true }
+          select: { id: true, gsm: true, weight: true }
         });
         flatId = flatRow?.id ?? null;
+
+        // Direct backfill for gsm and weight — these schema keys (gsm, weight) may not
+        // match any MasterAttribute in the DB (which uses GRAM_PER_SQUARE_METER, OUNCE, etc.)
+        // so ExtractionResult records aren't saved for them, leaving the flat row with nulls.
+        // Read them directly from result.attributes and fill in any gaps.
+        if (flatId) {
+          const attrs = result.attributes || {};
+          const gsmAttr = attrs['gsm'] ?? attrs['GSM'] ?? attrs['GRAM_PER_SQUARE_METER'] ?? null;
+          const weightAttr = attrs['weight'] ?? attrs['WEIGHT'] ?? attrs['g_weight'] ?? attrs['G-Weight'] ?? null;
+
+          const directFill: Record<string, string> = {};
+
+          if (!flatRow?.gsm && gsmAttr) {
+            const v = gsmAttr.schemaValue ?? gsmAttr.rawValue;
+            if (v != null && String(v).trim() !== '') directFill.gsm = String(v).trim();
+          }
+
+          if (!flatRow?.weight && weightAttr) {
+            const v = weightAttr.schemaValue ?? weightAttr.rawValue;
+            if (v != null && String(v).trim() !== '') {
+              const match = String(v).replace(/,/g, '').match(/(\d+(?:\.\d+)?)/);
+              if (match) directFill.weight = match[1];
+            }
+          }
+
+          if (Object.keys(directFill).length > 0) {
+            await prisma.extractionResultFlat.update({ where: { id: flatId }, data: directFill });
+            console.log(`✅ Direct gsm/weight backfill for flat row ${flatId}:`, directFill);
+          }
+        }
       } catch (flatError) {
         console.warn('Failed to flatten extraction results:', flatError);
       }

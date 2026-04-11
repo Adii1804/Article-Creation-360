@@ -77,7 +77,6 @@ export const SIMPLE_APPROVER_EXPORT_HEADERS = [
     'Rate',
     'MRP',
     'Size',
-    'Colour',
     'Pattern',
     'Fit',
     'Wash',
@@ -256,7 +255,6 @@ export default function ApproverDashboard() {
                 'Rate': row.rate == null ? undefined : Number(row.rate),
                 'MRP': row.mrp == null ? undefined : Number(row.mrp),
                 'Size': row.size || '',
-                'Colour': row.colour || '',
                 'Pattern': row.pattern || '',
                 'Fit': row.fit || '',
                 'Wash': row.wash || '',
@@ -682,7 +680,6 @@ export default function ApproverDashboard() {
             <Col span={8}><Form.Item name="shade" label="Shade"><Input /></Form.Item></Col>
 
             <Col span={24}><Typography.Title level={5}>Styling & Design</Typography.Title></Col>
-            <Col span={8}><Form.Item name="colour" label="Color"><Input /></Form.Item></Col>
             <Col span={8}><Form.Item name="pattern" label="Pattern"><Input /></Form.Item></Col>
             <Col span={8}><Form.Item name="fit" label="Fit"><Input /></Form.Item></Col>
             <Col span={8}><Form.Item name="wash" label="Wash"><Input /></Form.Item></Col>

@@ -414,6 +414,13 @@ export const ApproverTable: React.FC<ApproverTableProps> = ({
             fixed: 'left' as const,
         },
         {
+            title: 'Design Number',
+            dataIndex: 'designNumber',
+            key: 'designNumber',
+            width: 140,
+            editable: true,
+        },
+        {
             title: 'Status',
             key: 'status',
             width: 120,
@@ -495,7 +502,6 @@ export const ApproverTable: React.FC<ApproverTableProps> = ({
         { title: 'Rate', dataIndex: 'rate', key: 'rate', width: 100, editable: true },
         { title: 'MRP', dataIndex: 'mrp', key: 'mrp', width: 100, editable: true },
         { title: 'Size', dataIndex: 'size', key: 'size', width: 120, editable: true },
-        { title: 'Color', dataIndex: 'colour', key: 'colour', width: 120, editable: true },
         { title: 'Pattern', dataIndex: 'pattern', key: 'pattern', width: 120, editable: true },
         { title: 'Fit', dataIndex: 'fit', key: 'fit', width: 120, editable: true },
         { title: 'Wash', dataIndex: 'wash', key: 'wash', width: 120, editable: true },
