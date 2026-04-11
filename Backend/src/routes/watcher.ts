@@ -9,6 +9,7 @@ import multer from 'multer';
 import os from 'os';
 import path from 'path';
 import { EnhancedExtractionController } from '../controllers/enhancedExtractionController';
+import { backfillWatcherSubDivisions } from '../controllers/adminController';
 
 const router = Router();
 const enhancedController = new EnhancedExtractionController();
@@ -57,5 +58,8 @@ router.post('/extract/upload',
   upload.single('image'),
   enhancedController.extractFromUploadVLM
 );
+
+// One-time backfill: fix subDivision for all watcher articles from their majorCategory
+router.post('/backfill-subdivisions', backfillWatcherSubDivisions);
 
 export default router;
