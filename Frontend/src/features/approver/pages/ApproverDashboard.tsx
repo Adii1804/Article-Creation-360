@@ -64,7 +64,7 @@ const getSubDivisionVariants = (value?: string | null): string[] =>
             .filter(Boolean)
     ));
 
-const SIMPLE_APPROVER_EXPORT_HEADERS = [
+export const SIMPLE_APPROVER_EXPORT_HEADERS = [
     'Article Number',
     'Division',
     'Sub Division',

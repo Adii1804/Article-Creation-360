@@ -4,12 +4,10 @@ import { SearchOutlined } from '@ant-design/icons';
 import { APP_CONFIG } from '../../../constants/app/config';
 import type { SchemaItem } from '../../../shared/types/extraction/ExtractionTypes';
 import {
-  ORDERED_EXPORT_HEADERS,
-  HEADER_TO_SCHEMA_KEY,
-  buildExportSchema,
   exportToExcel,
-  mapMasterAttributes
+  mapMasterAttributes,
 } from '../../../shared/utils/export/extractionExport';
+import { SIMPLE_APPROVER_EXPORT_HEADERS } from '../../approver/pages/ApproverDashboard';
 import { getImageUrl } from '../../../shared/utils/common/helpers';
 import { formatDivisionLabel } from '../../../shared/utils/ui/formatters';
 import './Products.css';
@@ -216,8 +214,6 @@ export default function Products() {
     return value ? String(value) : null;
   }, []);
 
-  const exportSchema = useMemo(() => buildExportSchema(masterAttributes, masterAttributes), [masterAttributes]);
-
   const normalizeAttrKey = useCallback((key: string) => String(key || '').toLowerCase().replace(/[^a-z0-9]/g, ''), []);
 
   const attributeOptionsByKey = useMemo(() => {
@@ -288,46 +284,77 @@ export default function Products() {
 
   // Removed buildDetailsRowsWithMajor - category now comes from job.category.name
 
-  const buildOrderedExportDataFromResults = useCallback((items: ProductRow[]) => {
-    // Define numeric fields that should only contain numbers in Excel
-    const numericFields = new Set(['COST', 'NET PRICE', 'MAXIMUM RETAIL PRICE', 'RATE']);
-
+  const buildExportData = useCallback((items: ProductRow[]) => {
     return items.map((row) => {
-      const byKey = new Map<string, ProductRow['results'][number]>();
-      const byLabel = new Map<string, ProductRow['results'][number]>();
-
-      (row.results || []).forEach((item) => {
-        const key = item.attribute?.key?.toLowerCase();
-        const label = item.attribute?.label?.toLowerCase();
-        if (key) byKey.set(key, item);
-        if (label) byLabel.set(label, item);
-      });
-
-      const record: Record<string, string | number | undefined> = {};
-      ORDERED_EXPORT_HEADERS.forEach((header) => {
-        if (header === 'CREATION DATE') {
-          record[header] = row.createdAt || '';
-          return;
-        }
-
-        const schemaKey = HEADER_TO_SCHEMA_KEY[header];
-        const match = schemaKey
-          ? byKey.get(schemaKey.toLowerCase())
-          : byLabel.get(header.toLowerCase());
-
-        let value = match?.finalValue ?? match?.rawValue ?? '';
-
-        // For numeric fields, only export valid numbers
-        if (numericFields.has(header)) {
-          const numValue = typeof value === 'number' ? value : parseFloat(String(value));
-          // Only set if it's a valid number, otherwise leave empty
-          record[header] = !isNaN(numValue) && isFinite(numValue) ? numValue : undefined;
-        } else {
-          record[header] = value ?? '';
-        }
-      });
-
-      return record;
+      const flat = row.flatData || {};
+      const createdAt = flat.createdAt ? new Date(flat.createdAt) : null;
+      const formattedDate = createdAt && !Number.isNaN(createdAt.getTime())
+        ? createdAt.toLocaleDateString('en-GB')
+        : '';
+      return {
+        'Article Number': flat.articleNumber || flat.imageName || '',
+        'Division': flat.division || '',
+        'Sub Division': flat.subDivision || '',
+        'Major Category': flat.majorCategory || '',
+        'Status': flat.approvalStatus || '',
+        'Vendor Name': flat.vendorName || '',
+        'Vendor Code': flat.vendorCode || '',
+        'Design Number': flat.designNumber || '',
+        'PPT Number': flat.pptNumber || '',
+        'Rate': flat.rate == null ? undefined : Number(flat.rate),
+        'MRP': flat.mrp == null ? undefined : Number(flat.mrp),
+        'Size': flat.size || '',
+        'Colour': flat.colour || '',
+        'Pattern': flat.pattern || '',
+        'Fit': flat.fit || '',
+        'Wash': flat.wash || '',
+        'Macro MVGR': flat.macroMvgr || '',
+        'Main MVGR': flat.mainMvgr || '',
+        'Yarn 1': flat.yarn1 || '',
+        'Fabric Main MVGR': flat.fabricMainMvgr || '',
+        'Weave': flat.weave || '',
+        'M FAB 2': flat.mFab2 || '',
+        'Composition': flat.composition || '',
+        'Finish': flat.finish || '',
+        'GSM': flat.gsm || '',
+        'Weight': flat.weight || '',
+        'Lycra': flat.lycra || '',
+        'Shade': flat.shade || '',
+        'Neck': flat.neck || '',
+        'Neck Details': flat.neckDetails || '',
+        'Sleeve': flat.sleeve || '',
+        'Length': flat.length || '',
+        'Collar': flat.collar || '',
+        'Placket': flat.placket || '',
+        'Bottom Fold': flat.bottomFold || '',
+        'Front Open Style': flat.frontOpenStyle || '',
+        'Pocket Type': flat.pocketType || '',
+        'Drawcord': flat.drawcord || '',
+        'Button': flat.button || '',
+        'Zipper': flat.zipper || '',
+        'Zip Colour': flat.zipColour || '',
+        'Father Belt': flat.fatherBelt || '',
+        'Child Belt': flat.childBelt || '',
+        'Print Type': flat.printType || '',
+        'Print Style': flat.printStyle || '',
+        'Print Placement': flat.printPlacement || '',
+        'Patches': flat.patches || '',
+        'Patches Type': flat.patchesType || '',
+        'Embroidery': flat.embroidery || '',
+        'Embroidery Type': flat.embroideryType || '',
+        'Reference Article Number': flat.referenceArticleNumber || '',
+        'Reference Article Description': flat.referenceArticleDescription || '',
+        'MC Code': flat.mcCode || '',
+        'Segment': flat.segment || '',
+        'Season': flat.season || '',
+        'HSN Tax Code': flat.hsnTaxCode || '',
+        'Article Description': flat.articleDescription || '',
+        'Fashion Grid': flat.fashionGrid || '',
+        'Year': flat.year || '',
+        'Article Type': flat.articleType || '',
+        'Extracted By': flat.userName || '',
+        'Created Date': formattedDate,
+      };
     });
   }, []);
 
@@ -451,9 +478,9 @@ export default function Products() {
       message.warning('No completed extraction to export');
       return;
     }
-    const exportData = buildOrderedExportDataFromResults([row]);
-    await exportToExcel(exportData, ORDERED_EXPORT_HEADERS, [], row.productType || 'results');
-  }, [buildOrderedExportDataFromResults]);
+    const exportData = buildExportData([row]);
+    await exportToExcel(exportData, [...SIMPLE_APPROVER_EXPORT_HEADERS], [], row.productType || 'results');
+  }, [buildExportData]);
 
   const handleBulkExport = useCallback(async () => {
     if (selectedRows.length === 0) {
@@ -474,9 +501,9 @@ export default function Products() {
       message.info('Some selected items are not completed and will be skipped');
     }
 
-    const exportData = buildOrderedExportDataFromResults(completedRows);
-    await exportToExcel(exportData, ORDERED_EXPORT_HEADERS, [], 'bulk');
-  }, [buildOrderedExportDataFromResults, selectedRows]);
+    const exportData = buildExportData(completedRows);
+    await exportToExcel(exportData, [...SIMPLE_APPROVER_EXPORT_HEADERS], [], 'bulk');
+  }, [buildExportData, selectedRows]);
 
   const columns = useMemo(() => {
     const baseColumns = [
