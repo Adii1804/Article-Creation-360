@@ -329,6 +329,52 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
         await exportToExcel(exportData, [...SIMPLE_APPROVER_EXPORT_HEADERS], [], 'Article Creation');
     }, [buildApproverExportData, items, selectedRowKeys]);
 
+    const [exportingAll, setExportingAll] = useState(false);
+
+    const handleExportAll = useCallback(async () => {
+        setExportingAll(true);
+        const hide = message.loading('Fetching all records for export…', 0);
+        try {
+            const token = localStorage.getItem('authToken');
+            const params = new URLSearchParams();
+            params.set('status', statusFilter.includes('ALL') ? 'ALL' : statusFilter.join(','));
+            if (divisionFilter !== 'ALL') params.set('division', divisionFilter);
+            if (subDivisionFilter !== 'ALL') params.set('subDivision', subDivisionFilter);
+            if (searchText) params.set('search', searchText);
+            if (dateRangeFilter?.[0]) params.set('startDate', dateRangeFilter[0].startOf('day').toISOString());
+            if (dateRangeFilter?.[1]) params.set('endDate', dateRangeFilter[1].endOf('day').toISOString());
+            if (pathType) params.set('pathType', pathType);
+
+            const response = await fetch(`${APP_CONFIG.api.baseURL}/approver/items/export-all?${params}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (!response.ok) throw new Error('Export failed');
+
+            const result = await response.json();
+            const allRows = (result.data || []).map((item: ApproverItem) => ({
+                ...item,
+                mcCode: item.mcCode || inferMcCode(item.majorCategory)
+            }));
+
+            if (allRows.length === 0) {
+                message.warning('No records found for the current filters');
+                return;
+            }
+
+            const exportData = buildApproverExportData(allRows);
+            const fileName = pathType === 'old' ? 'Old Articles' : pathType === 'new' ? 'New Articles' : 'Articles';
+            const divLabel = divisionFilter !== 'ALL' ? ` - ${divisionFilter}` : '';
+            await exportToExcel(exportData, [...SIMPLE_APPROVER_EXPORT_HEADERS], [], `${fileName}${divLabel}`);
+            message.success(`Exported ${allRows.length} records`);
+        } catch {
+            message.error('Export failed. Please try again.');
+        } finally {
+            hide();
+            setExportingAll(false);
+        }
+    }, [statusFilter, divisionFilter, subDivisionFilter, searchText, dateRangeFilter, pathType, buildApproverExportData]);
+
     // Only PENDING items from the current page selection are eligible for approve/reject actions
     const pendingSelectedKeys = useMemo(() =>
         selectedRowKeys.filter(key =>
@@ -864,6 +910,15 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
                             <Button icon={<ReloadOutlined />} onClick={() => fetchItems(currentPage)}>Refresh</Button>
                             <Button icon={<DownloadOutlined />} onClick={handleExportSelected} disabled={selectedRowKeys.length === 0}>
                                 Excel ({selectedRowKeys.length})
+                            </Button>
+                            <Button
+                                icon={<DownloadOutlined />}
+                                onClick={handleExportAll}
+                                loading={exportingAll}
+                                type="default"
+                                style={{ borderColor: '#1890ff', color: '#1890ff' }}
+                            >
+                                Export All ({totalCount})
                             </Button>
                             <Button
                                 danger

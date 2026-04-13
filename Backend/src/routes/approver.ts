@@ -14,6 +14,9 @@ router.get('/attributes', ApproverController.getAttributes);
 // Get items for dashboard
 router.get('/items', ApproverController.getItems);
 
+// Export ALL items matching current filters (no pagination)
+router.get('/items/export-all', ApproverController.exportAll);
+
 // Update specific item (edit extracted data)
 router.put('/items/:id', ApproverController.updateItem);
 

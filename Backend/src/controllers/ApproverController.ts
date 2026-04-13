@@ -551,6 +551,112 @@ export class ApproverController {
         }
     }
 
+    // Export ALL items matching current filters (no pagination) — used for bulk Excel download
+    static async exportAll(req: Request, res: Response) {
+        try {
+            const { status, division, subDivision, startDate, endDate, search, pathType } = req.query;
+
+            const where: any = {};
+
+            // RBAC
+            const role = String(req.user?.role || '');
+            if (role === 'ADMIN') {
+                if (division && division !== 'ALL') where.division = division as string;
+                if (subDivision && subDivision !== 'ALL') where.subDivision = subDivision as string;
+            } else {
+                ApproverController.applyApproverScope(where, req.user);
+            }
+
+            // Path-type filter (same as getItems)
+            console.log(`[ApproverController] exportAll pathType=${pathType ?? 'none'}`);
+            if (pathType === 'old') {
+                where.AND = where.AND || [];
+                where.AND.push({
+                    OR: ApproverController.OLD_PATH_MARKERS.map(marker => ({
+                        imageUncPath: { contains: marker, mode: 'insensitive' }
+                    }))
+                });
+            } else if (pathType === 'new') {
+                where.AND = where.AND || [];
+                where.AND.push({
+                    OR: [
+                        { imageUncPath: null },
+                        {
+                            AND: ApproverController.OLD_PATH_MARKERS.map(marker => ({
+                                NOT: { imageUncPath: { contains: marker, mode: 'insensitive' } }
+                            }))
+                        }
+                    ]
+                });
+            }
+
+            // Status filter
+            if (status && status !== 'ALL') {
+                const requestedStatuses = (status as string)
+                    .split(',')
+                    .map(s => String(s || '').trim().toUpperCase())
+                    .filter(Boolean);
+
+                const approvalStatuses = requestedStatuses.filter((s) =>
+                    s === ApprovalStatus.PENDING ||
+                    s === ApprovalStatus.APPROVED ||
+                    s === ApprovalStatus.REJECTED
+                ) as ApprovalStatus[];
+
+                const includeFailed = requestedStatuses.includes('FAILED');
+
+                if (approvalStatuses.length > 0 || includeFailed) {
+                    const statusPredicates: any[] = [];
+                    if (approvalStatuses.length > 0) {
+                        statusPredicates.push({ approvalStatus: { in: approvalStatuses } });
+                    }
+                    if (includeFailed) {
+                        statusPredicates.push({ sapSyncStatus: SapSyncStatus.FAILED });
+                    }
+                    where.AND = where.AND || [];
+                    where.AND.push(
+                        statusPredicates.length === 1
+                            ? statusPredicates[0]
+                            : { OR: statusPredicates }
+                    );
+                }
+            }
+
+            // Date range
+            if (startDate && endDate) {
+                where.createdAt = {
+                    gte: new Date(startDate as string),
+                    lte: new Date(endDate as string)
+                };
+            }
+
+            // Text search
+            if (search) {
+                const searchTerm = search as string;
+                where.OR = [
+                    { articleNumber: { contains: searchTerm, mode: 'insensitive' } },
+                    { designNumber: { contains: searchTerm, mode: 'insensitive' } },
+                    { vendorName: { contains: searchTerm, mode: 'insensitive' } },
+                    { pptNumber: { contains: searchTerm, mode: 'insensitive' } },
+                    { referenceArticleNumber: { contains: searchTerm, mode: 'insensitive' } }
+                ];
+            }
+
+            // Fetch ALL matching rows (no skip/take) ordered by createdAt desc
+            const items = await prisma.extractionResultFlat.findMany({
+                where,
+                orderBy: { createdAt: 'desc' },
+            });
+
+            console.log(`[ApproverController] exportAll returning ${items.length} rows`);
+
+            return res.json({ data: items, meta: { total: items.length } });
+        } catch (error) {
+            console.error('Error in exportAll:', error);
+            return res.status(500).json({ error: 'Failed to export items' });
+        }
+    }
+
     // Get master attributes for dropdowns
     static async getAttributes(req: Request, res: Response) {
         try {
