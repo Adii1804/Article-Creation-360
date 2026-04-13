@@ -1,13 +1,13 @@
-import { useState } from 'react';
 import { Menu, Layout } from 'antd';
 import { Link, useLocation } from 'react-router-dom';
 import {
   DashboardOutlined,
   UploadOutlined,
   SettingOutlined,
-
   HomeOutlined,
   CheckSquareOutlined,
+  FileOutlined,
+  HistoryOutlined,
 } from '@ant-design/icons';
 
 const { Sider } = Layout;
@@ -19,7 +19,7 @@ interface SidebarProps {
 
 export default function Sidebar({ collapsed = false, userRole }: SidebarProps) {
   const location = useLocation();
-  const [selectedKey, setSelectedKey] = useState(location.pathname);
+  const selectedKey = location.pathname;
 
   const menuItems = [
     {
@@ -44,9 +44,21 @@ export default function Sidebar({ collapsed = false, userRole }: SidebarProps) {
     },
     // Approver Dashboard - Visible to ADMIN, APPROVER and CATEGORY_HEAD
     ...((userRole === 'ADMIN' || userRole === 'APPROVER' || userRole === 'CATEGORY_HEAD') ? [{
-      key: '/approver',
+      key: 'approver-group',
       icon: <CheckSquareOutlined />,
-      label: <Link to="/approver">Approver</Link>,
+      label: 'Approver',
+      children: [
+        {
+          key: '/approver',
+          icon: <FileOutlined />,
+          label: <Link to="/approver">New Articles</Link>,
+        },
+        {
+          key: '/approver/old-articles',
+          icon: <HistoryOutlined />,
+          label: <Link to="/approver/old-articles">Old Articles</Link>,
+        },
+      ],
     }] : []),
     ...(userRole === 'ADMIN' ? [{
       key: '/admin',
@@ -55,6 +67,8 @@ export default function Sidebar({ collapsed = false, userRole }: SidebarProps) {
     }] : []),
   ];
 
+  const openKeys = selectedKey.startsWith('/approver') ? ['approver-group'] : [];
+
   return (
     <Sider trigger={null} collapsible collapsed={collapsed}>
       <div style={{ height: 32, margin: 16, background: 'rgba(255, 255, 255, 0.2)' }} />
@@ -62,8 +76,8 @@ export default function Sidebar({ collapsed = false, userRole }: SidebarProps) {
         theme="dark"
         mode="inline"
         selectedKeys={[selectedKey]}
+        defaultOpenKeys={openKeys}
         items={menuItems}
-        onClick={({ key }) => setSelectedKey(key)}
       />
     </Sider>
   );

@@ -130,7 +130,11 @@ export const SIMPLE_APPROVER_EXPORT_HEADERS = [
 
 const PAGE_SIZE = 200;
 
-export default function ApproverDashboard() {
+interface ApproverDashboardProps {
+    pathType?: 'old' | 'new';
+}
+
+export default function ApproverDashboard({ pathType }: ApproverDashboardProps = {}) {
     const [items, setItems] = useState<ApproverItem[]>([]);
     const [attributes, setAttributes] = useState<MasterAttribute[]>([]);
     const [loading, setLoading] = useState(false);
@@ -208,6 +212,7 @@ export default function ApproverDashboard() {
             if (searchText) params.set('search', searchText);
             if (dateRangeFilter?.[0]) params.set('startDate', dateRangeFilter[0].startOf('day').toISOString());
             if (dateRangeFilter?.[1]) params.set('endDate', dateRangeFilter[1].endOf('day').toISOString());
+            if (pathType) params.set('pathType', pathType);
 
             const response = await fetch(`${APP_CONFIG.api.baseURL}/approver/items?${params}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -227,7 +232,7 @@ export default function ApproverDashboard() {
         } finally {
             setLoading(false);
         }
-    }, [statusFilter, divisionFilter, subDivisionFilter, searchText, dateRangeFilter]);
+    }, [statusFilter, divisionFilter, subDivisionFilter, searchText, dateRangeFilter, pathType]);
 
     useEffect(() => { fetchAttributes(); }, [fetchAttributes]);
 
@@ -732,7 +737,9 @@ export default function ApproverDashboard() {
             <div style={{ marginBottom: 6, flexShrink: 0 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
-                        <Title level={4} style={{ margin: 0 }}>Approver Dashboard</Title>
+                        <Title level={4} style={{ margin: 0 }}>
+                            {pathType === 'old' ? 'Old Articles' : pathType === 'new' ? 'New Articles' : 'Approver Dashboard'}
+                        </Title>
                         {user?.division && <Text type="success" style={{ fontSize: 12 }}>Scope: {formatDivisionLabel(user.division)} {user.subDivision ? `(${user.subDivision})` : ''}</Text>}
                     </div>
                 </div>

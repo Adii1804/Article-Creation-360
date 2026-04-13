@@ -411,9 +411,17 @@ export class ApproverController {
 
     // Get items for approver dashboard
     // Filters: approvalStatus (default: PENDING), division, date range, search
+    // Unique folder-name markers that identify "OLD ARTICLES" paths.
+    // Using contains (no backslashes) instead of startsWith to avoid PostgreSQL LIKE escape issues.
+    private static readonly OLD_PATH_MARKERS = [
+        'PIC-LADIES-LESS THAN 180',
+        'PIC-KIDS-LESS THAN 180',
+        'PIC-MENS-LESS THAN 180',
+    ];
+
     static async getItems(req: Request, res: Response) {
         try {
-            const { status, division, subDivision, startDate, endDate, search, page = 1, limit = 50 } = req.query;
+            const { status, division, subDivision, startDate, endDate, search, page = 1, limit = 50, pathType } = req.query;
 
             const where: any = {};
 
@@ -425,6 +433,33 @@ export class ApproverController {
                 if (subDivision && subDivision !== 'ALL') where.subDivision = subDivision as string;
             } else {
                 ApproverController.applyApproverScope(where, req.user);
+            }
+
+            // Path-type filter: 'old' → only OLD_PATH_MARKERS, 'new' → exclude them
+            // Using `contains` (no backslashes) avoids PostgreSQL LIKE escape-character issues
+            // that occur when using `startsWith` with UNC paths (\\server\folder...).
+            console.log(`[ApproverController] pathType=${pathType ?? 'none'}`);
+            if (pathType === 'old') {
+                where.AND = where.AND || [];
+                where.AND.push({
+                    OR: ApproverController.OLD_PATH_MARKERS.map(marker => ({
+                        imageUncPath: { contains: marker, mode: 'insensitive' }
+                    }))
+                });
+            } else if (pathType === 'new') {
+                where.AND = where.AND || [];
+                // Exclude any record whose path contains one of the old markers.
+                // Also include records where imageUncPath is NULL (manual uploads).
+                where.AND.push({
+                    OR: [
+                        { imageUncPath: null },
+                        {
+                            AND: ApproverController.OLD_PATH_MARKERS.map(marker => ({
+                                NOT: { imageUncPath: { contains: marker, mode: 'insensitive' } }
+                            }))
+                        }
+                    ]
+                });
             }
 
             // Status Filtering (Multi-select support)

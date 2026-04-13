@@ -10,7 +10,9 @@ import {
   GlobalOutlined,
   ControlOutlined,
   SettingOutlined,
-  CheckSquareOutlined
+  CheckSquareOutlined,
+  FileOutlined,
+  HistoryOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './MainLayout.css';
@@ -97,7 +99,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     ];
 
     const approverItems = [
-      { key: '/approver', icon: <CheckSquareOutlined />, label: 'Approver Dashboard' },
+      {
+        key: '/approver-group',
+        icon: <CheckSquareOutlined />,
+        label: 'Approver',
+        children: [
+          { key: '/approver', icon: <FileOutlined />, label: 'New Articles' },
+          { key: '/approver/old-articles', icon: <HistoryOutlined />, label: 'Old Articles' },
+        ],
+      },
     ];
 
     if (!isAuthenticated) return [];

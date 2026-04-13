@@ -222,7 +222,17 @@ const App: React.FC = () => {
                 element={
                   <ApproverRoute>
                     <MainLayout>
-                      <ApproverDashboard />
+                      <ApproverDashboard key="new-articles" pathType="new" />
+                    </MainLayout>
+                  </ApproverRoute>
+                }
+              />
+              <Route
+                path="/approver/old-articles"
+                element={
+                  <ApproverRoute>
+                    <MainLayout>
+                      <ApproverDashboard key="old-articles" pathType="old" />
                     </MainLayout>
                   </ApproverRoute>
                 }

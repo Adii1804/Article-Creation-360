@@ -5,7 +5,8 @@
       "Bash(grep -n \"vendor_code\\\\|vendorCode\\\\|saveExtraction\\\\|persistenceExtraction\" /c/Users/Administrator/Desktop/Ai-fashion/Backend/src/controllers/*.ts)",
       "Bash(ls -la /c/Users/Administrator/Desktop/Ai-fashion/Backend/prisma/*.ts)",
       "Bash(node -e ':*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(node -e \":*)"
     ]
   }
 }
