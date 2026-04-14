@@ -112,14 +112,14 @@
  {
   "Sr no.": 22,
   "Attributes": "neck",
-  "SAP NAME": "M_NECK_BAND",
-  "API Name": "M_NECK_BAND"
+  "SAP NAME": "M_NECK_BAND_STYLE",
+  "API Name": "M_NECK_BAND_STYLE"
  },
  {
   "Sr no.": 23,
   "Attributes": "neck_details",
-  "SAP NAME": "M_NECK_BAND_STYLE",
-  "API Name": "M_NECK_BAND_STYLE"
+  "SAP NAME": "M_NECK_BAND",
+  "API Name": "M_NECK_BAND"
  },
  {
   "Sr no.": 24,
