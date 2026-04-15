@@ -335,6 +335,9 @@ model ExtractionResultFlat {
   @@index([division, approvalStatus])
   @@index([subDivision, approvalStatus])
   @@index([vendorName])
+  @@index([designNumber])
+  @@index([pptNumber])
+  @@index([referenceArticleNumber])
   @@index([isGeneric, approvalStatus, division])
   @@map("extraction_results_flat")
 }

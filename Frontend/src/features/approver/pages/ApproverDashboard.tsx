@@ -129,7 +129,7 @@ export const SIMPLE_APPROVER_EXPORT_HEADERS = [
     'Created Date'
 ] as const;
 
-const PAGE_SIZE = 200;
+const PAGE_SIZE = 50;
 
 interface ApproverDashboardProps {
     pathType?: 'old' | 'new';
@@ -145,18 +145,24 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
     const [totalCount, setTotalCount] = useState(0);
 
     // Filters
-    const [statusFilter, setStatusFilter] = useState<string[]>(['ALL']);
+    const [statusFilter, setStatusFilter] = useState<string>('ALL');
     const [searchText, setSearchText] = useState('');
     const [divisionFilter, setDivisionFilter] = useState<string>('ALL');
     const [subDivisionFilter, setSubDivisionFilter] = useState<string>('ALL');
     const [dateRangeFilter, setDateRangeFilter] = useState<[Dayjs | null, Dayjs | null] | null>(null);
 
-    // Debounce search input — only update searchText (which re-triggers fetchItems) after 300 ms idle
+    // Debounce search — wait 700ms idle AND require at least 3 chars (or empty to reset)
     const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
         if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
-        searchDebounceRef.current = setTimeout(() => setSearchText(value), 300);
+        // Fire immediately on clear, otherwise wait 700ms and require 3+ chars
+        if (value === '') {
+            setSearchText('');
+            return;
+        }
+        if (value.length < 3) return; // don't search on 1-2 chars
+        searchDebounceRef.current = setTimeout(() => setSearchText(value), 700);
     }, []);
 
     // Derived: user's assigned divisions/sub-divisions (parsed from their profile)
@@ -215,7 +221,7 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
             const params = new URLSearchParams();
             params.set('page', String(page));
             params.set('limit', String(PAGE_SIZE));
-            params.set('status', statusFilter.includes('ALL') ? 'ALL' : statusFilter.join(','));
+            params.set('status', statusFilter);
             if (divisionFilter !== 'ALL') params.set('division', divisionFilter);
             if (subDivisionFilter !== 'ALL') params.set('subDivision', subDivisionFilter);
             if (searchText) params.set('search', searchText);
@@ -346,7 +352,7 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
         try {
             const token = localStorage.getItem('authToken');
             const params = new URLSearchParams();
-            params.set('status', statusFilter.includes('ALL') ? 'ALL' : statusFilter.join(','));
+            params.set('status', statusFilter);
             if (divisionFilter !== 'ALL') params.set('division', divisionFilter);
             if (subDivisionFilter !== 'ALL') params.set('subDivision', subDivisionFilter);
             if (searchText) params.set('search', searchText);
@@ -790,166 +796,122 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
     return (
         <div>
             <div style={{ marginBottom: 6, flexShrink: 0 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
-                        <Title level={4} style={{ margin: 0 }}>
-                            {pathType === 'old' ? 'Old Articles' : pathType === 'new' ? 'New Articles' : 'Approver Dashboard'}
-                        </Title>
-                        {user?.division && <Text type="success" style={{ fontSize: 12 }}>Scope: {formatDivisionLabel(user.division)} {user.subDivision ? `(${user.subDivision})` : ''}</Text>}
+                <div style={{
+                    background: '#fff',
+                    borderRadius: 12,
+                    border: '1px solid #ebebeb',
+                    boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+                    overflow: 'hidden',
+                }}>
+                    {/* Title row */}
+                    <div style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '10px 16px',
+                        borderBottom: '1px solid #f0f0f0',
+                        background: 'linear-gradient(90deg, #fafafa 0%, #f5f3ff 100%)',
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div style={{
+                                width: 6, height: 22, borderRadius: 3,
+                                background: 'linear-gradient(180deg, #6366f1, #a78bfa)',
+                            }} />
+                            <span style={{ fontWeight: 700, fontSize: 15, color: '#1e1b4b' }}>
+                                {pathType === 'old' ? 'Old Articles' : pathType === 'new' ? 'New Articles' : 'Approver Dashboard'}
+                            </span>
+                            {user?.division && (
+                                <span style={{
+                                    fontSize: 11, color: '#7c3aed', fontWeight: 500,
+                                    background: '#ede9fe', borderRadius: 20, padding: '2px 10px',
+                                }}>
+                                    {formatDivisionLabel(user.division)}{user.subDivision ? ` · ${user.subDivision}` : ''}
+                                </span>
+                            )}
+                        </div>
+                        <span style={{ fontSize: 11, color: '#a78bfa', fontWeight: 600, letterSpacing: 1.5 }}>
+                            AI FASHION
+                        </span>
                     </div>
-                </div>
 
-                <Card size="small" style={{ marginBottom: 0 }}>
-                    <Row gutter={[12, 12]} align="middle">
-                        <Col xs={24} sm={8} md={5}>
-                            <Input.Search
-                                placeholder="Search Article, Vendor, Design #"
-                                onSearch={val => setSearchText(val)}
-                                onChange={handleSearchChange}
-                                allowClear
-                                onClear={() => setSearchText('')}
-                            />
-                        </Col>
-                        <Col xs={24} sm={8} md={4}>
-                            <Select
-                                mode="multiple"
-                                style={{ width: '100%' }}
-                                placeholder="Filter Status"
-                                value={statusFilter}
-                                onChange={setStatusFilter}
-                                maxTagCount="responsive"
-                            >
-                                <Option value="PENDING">Pending</Option>
-                                <Option value="APPROVED">Approved</Option>
-                                <Option value="FAILED">Failed</Option>
-                                <Option value="REJECTED">Rejected</Option>
-                                <Option value="ALL">All Statuses</Option>
-                            </Select>
-                        </Col>
-
-                        {/* Non-admin: show division filter if user has multiple divisions */}
-                        {showDivisionFilter && (
-                            <Col xs={24} sm={8} md={3}>
-                                <Select
-                                    style={{ width: '100%' }}
-                                    placeholder="Division"
-                                    value={divisionFilter}
-                                    onChange={(val) => {
-                                        setDivisionFilter(val);
-                                        setSubDivisionFilter('ALL');
-                                    }}
-                                >
-                                    <Option value="ALL">All Divisions</Option>
-                                    {userAssignedDivisions.map(d => (
-                                        <Option key={d} value={d}>{formatDivisionLabel(d)}</Option>
-                                    ))}
+                    {/* Filter row */}
+                    <div style={{ padding: '10px 16px 8px', borderBottom: '1px solid #f0f0f0' }}>
+                        <Row gutter={[10, 8]} align="middle">
+                            <Col xs={24} sm={12} md={7}>
+                                <Input.Search
+                                    placeholder="Search article, vendor, design..."
+                                    onSearch={val => setSearchText(val)}
+                                    onChange={handleSearchChange}
+                                    allowClear
+                                    onClear={() => setSearchText('')}
+                                />
+                            </Col>
+                            <Col xs={12} sm={6} md={4}>
+                                <Select style={{ width: '100%' }} value={statusFilter} onChange={(val) => setStatusFilter(val)}>
+                                    <Option value="ALL">All Statuses</Option>
+                                    <Option value="PENDING">Pending</Option>
+                                    <Option value="APPROVED">Approved</Option>
+                                    <Option value="REJECTED">Rejected</Option>
+                                    <Option value="FAILED">Failed</Option>
                                 </Select>
                             </Col>
-                        )}
-
-                        {/* Non-admin: show sub-division filter if user has multiple sub-divisions */}
-                        {showSubDivisionFilter && (
-                            <Col xs={24} sm={8} md={3}>
-                                <Select
-                                    style={{ width: '100%' }}
-                                    placeholder="Sub-Division"
-                                    value={subDivisionFilter}
-                                    onChange={setSubDivisionFilter}
-                                >
-                                    <Option value="ALL">All Sub-Divs</Option>
-                                    {userAssignedSubDivisions.map(sd => (
-                                        <Option key={sd} value={sd}>{sd}</Option>
-                                    ))}
-                                </Select>
-                            </Col>
-                        )}
-
-                        {/* Admin Filters */}
-                        {user?.role === 'ADMIN' && (
-                            <>
-                                <Col xs={24} sm={8} md={3}>
-                                    <Select
-                                        style={{ width: '100%' }}
-                                        placeholder="Division"
-                                        value={divisionFilter}
-                                        onChange={(val) => {
-                                            setDivisionFilter(val);
-                                            setSubDivisionFilter('ALL'); // reset sub-div when division changes
-                                        }}
-                                    >
+                            {(showDivisionFilter || user?.role === 'ADMIN') && (
+                                <Col xs={12} sm={6} md={4}>
+                                    <Select style={{ width: '100%' }} placeholder="Division" value={divisionFilter}
+                                        onChange={(val) => { setDivisionFilter(val); setSubDivisionFilter('ALL'); }}>
                                         <Option value="ALL">All Divisions</Option>
-                                        <Option value="MEN">MENS</Option>
-                                        <Option value="LADIES">LADIES</Option>
-                                        <Option value="KIDS">KIDS</Option>
+                                        {user?.role === 'ADMIN' ? (
+                                            <><Option value="MEN">MENS</Option><Option value="LADIES">LADIES</Option><Option value="KIDS">KIDS</Option></>
+                                        ) : userAssignedDivisions.map(d => <Option key={d} value={d}>{formatDivisionLabel(d)}</Option>)}
                                     </Select>
                                 </Col>
-                                <Col xs={24} sm={8} md={3}>
-                                    <Select
-                                        style={{ width: '100%' }}
-                                        placeholder="Sub-Division"
-                                        value={subDivisionFilter}
-                                        onChange={setSubDivisionFilter}
-                                    >
+                            )}
+                            {(showSubDivisionFilter || user?.role === 'ADMIN') && (
+                                <Col xs={12} sm={6} md={4}>
+                                    <Select style={{ width: '100%' }} placeholder="Sub-Division" value={subDivisionFilter}
+                                        onChange={setSubDivisionFilter} showSearch>
                                         <Option value="ALL">All Sub-Divs</Option>
-                                        {getSubDivisionOptions(divisionFilter === 'ALL' ? undefined : divisionFilter).length > 0
-                                            ? getSubDivisionOptions(divisionFilter === 'ALL' ? undefined : divisionFilter).map(sd => (
-                                                <Option key={sd} value={sd}>{sd}</Option>
-                                            ))
-                                            : <>
-                                                {SIMPLIFIED_HIERARCHY['MENS'].map(sd => <Option key={sd} value={sd}>{sd}</Option>)}
-                                                {SIMPLIFIED_HIERARCHY['Ladies'].map(sd => <Option key={sd} value={sd}>{sd}</Option>)}
-                                                {SIMPLIFIED_HIERARCHY['Kids'].map(sd => <Option key={sd} value={sd}>{sd}</Option>)}
-                                            </>
+                                        {user?.role === 'ADMIN'
+                                            ? (getSubDivisionOptions(divisionFilter === 'ALL' ? undefined : divisionFilter).length > 0
+                                                ? getSubDivisionOptions(divisionFilter === 'ALL' ? undefined : divisionFilter).map(sd => <Option key={sd} value={sd}>{sd}</Option>)
+                                                : [...SIMPLIFIED_HIERARCHY['MENS'], ...SIMPLIFIED_HIERARCHY['Ladies'], ...SIMPLIFIED_HIERARCHY['Kids']].map(sd => <Option key={sd} value={sd}>{sd}</Option>))
+                                            : userAssignedSubDivisions.map(sd => <Option key={sd} value={sd}>{sd}</Option>)
                                         }
                                     </Select>
                                 </Col>
-                            </>
-                        )}
+                            )}
+                            <Col xs={24} sm={12} md={5}>
+                                <RangePicker style={{ width: '100%' }} value={dateRangeFilter}
+                                    onChange={(dates) => setDateRangeFilter(dates)}
+                                    allowEmpty={[true, true]} format="DD-MM-YYYY"
+                                    placeholder={['Start date', 'End date']} />
+                            </Col>
+                        </Row>
+                    </div>
 
-                        <Col xs={24} sm={16} md={4}>
-                            <RangePicker
-                                style={{ width: '100%' }}
-                                value={dateRangeFilter}
-                                onChange={(dates) => setDateRangeFilter(dates)}
-                                allowEmpty={[true, true]}
-                                format="DD-MM-YYYY"
-                            />
-                        </Col>
-
-                        <Col xs={24} sm={24} md={5} style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, whiteSpace: 'nowrap' }}>
-                            <Button icon={<ReloadOutlined />} onClick={() => fetchItems(currentPage)}>Refresh</Button>
-                            <Button icon={<DownloadOutlined />} onClick={handleExportSelected} disabled={selectedRowKeys.length === 0}>
-                                Excel ({selectedRowKeys.length})
+                    {/* Action row */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 16px', background: '#fafafa' }}>
+                        <span style={{ fontSize: 12, color: '#6366f1', fontWeight: 600 }}>
+                            {totalCount.toLocaleString()} records
+                            {selectedRowKeys.length > 0 && <span style={{ color: '#f59e0b', marginLeft: 8 }}>· {selectedRowKeys.length} selected</span>}
+                        </span>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                            <Button size="small" icon={<ReloadOutlined />} onClick={() => fetchItems(currentPage)}>Refresh</Button>
+                            <Button size="small" icon={<DownloadOutlined />} onClick={handleExportSelected} disabled={selectedRowKeys.length === 0}>
+                                Export Selected
                             </Button>
-                            <Button
-                                icon={<DownloadOutlined />}
-                                onClick={handleExportAll}
-                                loading={exportingAll}
-                                type="default"
-                                style={{ borderColor: '#1890ff', color: '#1890ff' }}
-                            >
+                            <Button size="small" icon={<DownloadOutlined />} onClick={handleExportAll} loading={exportingAll}
+                                style={{ background: 'linear-gradient(90deg,#6366f1,#818cf8)', color: '#fff', border: 'none', fontWeight: 600 }}>
                                 Export All ({totalCount})
                             </Button>
-                            <Button
-                                danger
-                                icon={<CloseCircleOutlined />}
-                                onClick={handleReject}
-                                disabled={pendingSelectedKeys.length === 0}
-                            >
+                            <Button size="small" danger icon={<CloseCircleOutlined />} onClick={handleReject} disabled={pendingSelectedKeys.length === 0}>
                                 Reject ({pendingSelectedKeys.length})
                             </Button>
-                            <Button
-                                type="primary"
-                                icon={<CheckCircleOutlined />}
-                                onClick={handleApprove}
-                                disabled={pendingSelectedKeys.length === 0}
-                                style={{ backgroundColor: '#52c41a', borderColor: '#52c41a' }}
-                            >
+                            <Button size="small" icon={<CheckCircleOutlined />} onClick={handleApprove} disabled={pendingSelectedKeys.length === 0}
+                                style={pendingSelectedKeys.length > 0 ? { background: 'linear-gradient(90deg,#10b981,#34d399)', color: '#fff', border: 'none', fontWeight: 600 } : {}}>
                                 Approve ({pendingSelectedKeys.length})
                             </Button>
-                        </Col>
-                    </Row>
-                </Card>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <Card
@@ -966,7 +928,7 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
                         onEdit={handleEdit}
                         attributes={attributes}
                         user={user}
-                        expandable={{
+                        expandable={pathType !== 'old' ? {
                             expandedRowRender: (record) => (
                                 <VariantSubTable
                                     genericId={record.id}
@@ -977,7 +939,23 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
                             ),
                             expandRowByClick: false,
                             rowExpandable: () => true,
-                        }}
+                            expandIcon: ({ expanded, onExpand, record }) => (
+                                <button
+                                    onClick={e => onExpand(record, e)}
+                                    style={{
+                                        width: 24, height: 24, cursor: 'pointer',
+                                        border: '2px solid #1890ff', borderRadius: 4,
+                                        background: expanded ? '#1890ff' : '#e6f4ff',
+                                        color: expanded ? '#fff' : '#1890ff',
+                                        fontWeight: 'bold', fontSize: 16,
+                                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                        padding: 0, lineHeight: 1,
+                                    }}
+                                >
+                                    {expanded ? '−' : '+'}
+                                </button>
+                            ),
+                        } : undefined}
                         serverPagination={{
                             total: totalCount,
                             current: currentPage,

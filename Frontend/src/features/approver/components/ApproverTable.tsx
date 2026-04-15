@@ -1,5 +1,5 @@
 import React, { useCallback, useContext, useEffect, useRef, useState, useMemo } from 'react';
-import { Table, Tag, Form, Input, Select, Button, Typography, Image, Modal } from 'antd';
+import { Table, Tag, Form, Input, Select, Button, Typography, Modal } from 'antd';
 import { EditOutlined } from '@ant-design/icons';
 import type { FormInstance } from 'antd/es/form';
 import { getImageUrl } from '../../../shared/utils/common/helpers';
@@ -350,29 +350,30 @@ export const ApproverTable: React.FC<ApproverTableProps> = ({
             key: 'image',
             width: 80,
             fixed: 'left' as const,
-            render: (_: unknown, row: ApproverItem) => (
-                <div style={{ width: density.imgSize, height: density.imgSize, borderRadius: 6, overflow: 'hidden', background: '#f5f5f5' }}>
-                    {row.imageUrl && !failedIds.has(row.id) || refreshedUrls[row.id] ? (
-                        <Image
-                            src={getImageUrl(refreshedUrls[row.id] || row.imageUrl!)}
-                            alt={row.imageName || 'Product'}
-                            width={density.imgSize}
-                            height={density.imgSize}
-                            style={{ objectFit: 'cover', cursor: 'pointer' }}
-                            preview={{
-                                src: getImageUrl(refreshedUrls[row.id] || row.imageUrl!),
-                                mask: <span style={{ fontSize: 10 }}>👁</span>,
-                            }}
-                            onError={() => handleImageError(row.id)}
-                            fallback="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
-                        />
-                    ) : (
-                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <span style={{ fontSize: 10, color: '#999' }}>No Image</span>
-                        </div>
-                    )}
-                </div>
-            )
+            render: (_: unknown, row: ApproverItem) => {
+                const src = refreshedUrls[row.id] || row.imageUrl;
+                const url = src && !failedIds.has(row.id) ? getImageUrl(src) : null;
+                return (
+                    <div style={{ width: density.imgSize, height: density.imgSize, borderRadius: 6, overflow: 'hidden', background: '#f5f5f5' }}>
+                        {url ? (
+                            <img
+                                src={url}
+                                alt={row.imageName || 'Product'}
+                                width={density.imgSize}
+                                height={density.imgSize}
+                                loading="lazy"
+                                style={{ objectFit: 'cover', cursor: 'pointer', display: 'block' }}
+                                onError={() => handleImageError(row.id)}
+                                onClick={() => window.open(url, '_blank')}
+                            />
+                        ) : (
+                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <span style={{ fontSize: 10, color: '#999' }}>No Image</span>
+                            </div>
+                        )}
+                    </div>
+                );
+            }
         },
         {
             title: 'Ref Details (Editable)',

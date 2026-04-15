@@ -46,21 +46,35 @@ export class GoogleVisionProvider implements VLMProvider {
 
     try {
       let ocrMetadata: Record<string, any> | null = null;
-      try {
-        const ocrPrompt = this.buildOcrPrompt(request);
-        const ocrResponse = await this.callGeminiVision(request.image, ocrPrompt);
-        ocrMetadata = this.parseOcrResponse(ocrResponse.content);
-        if (ocrMetadata) {
-          console.log(`🧾 [OCR] Pre-pass metadata extracted: colour="${ocrMetadata.colour}", size="${ocrMetadata.size}", gsm="${ocrMetadata.gsm}"`);
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          const ocrPrompt = this.buildOcrPrompt(request);
+          const ocrResponse = await this.callGeminiVision(request.image, ocrPrompt);
+          ocrMetadata = this.parseOcrResponse(ocrResponse.content);
+          if (ocrMetadata) {
+            console.log(`🧾 [OCR] Pre-pass metadata extracted: colour="${ocrMetadata.colour}", size="${ocrMetadata.size}", gsm="${ocrMetadata.gsm}"`);
+          }
+          break; // success
+        } catch (ocrError: any) {
+          console.warn(`⚠️ [OCR] Pre-pass attempt ${attempt}/3 failed: ${ocrError?.message}`);
+          if (attempt < 3) await new Promise(r => setTimeout(r, 1000 * attempt));
         }
-      } catch (ocrError) {
-        console.warn('⚠️ [OCR] Pre-pass failed, continuing with main extraction');
       }
 
       const prompt = this.buildPrompt(request, ocrMetadata || undefined);
-      const response = await this.callGeminiVision(request.image, prompt);
+      let response: Awaited<ReturnType<typeof this.callGeminiVision>> | null = null;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          response = await this.callGeminiVision(request.image, prompt);
+          break;
+        } catch (err: any) {
+          console.warn(`⚠️ [Main] Extraction attempt ${attempt}/3 failed: ${err?.message}`);
+          if (attempt < 3) await new Promise(r => setTimeout(r, 1000 * attempt));
+          else throw err;
+        }
+      }
 
-      const { attributes, extractedMetadata } = await this.parseResponse(response.content, request.schema, ocrMetadata || undefined);
+      const { attributes, extractedMetadata } = await this.parseResponse(response!.content, request.schema, ocrMetadata || undefined);
 
       // Simple direct fallback: if colour is still null but OCR extracted it, use it directly
       if (!attributes['colour'] && ocrMetadata?.colour) {
@@ -82,15 +96,15 @@ export class GoogleVisionProvider implements VLMProvider {
       const extractedCount = Object.values(attributes).filter(attr => attr !== null).length;
 
       console.log(`✅ [Google Vision] Extraction complete: ${extractedCount}/${Object.keys(attributes).length} attributes, ${processingTime}ms`);
-      console.log(`📊 [Google Vision] Performance: Confidence=${confidence}%, Tokens=${response.tokensUsed}`);
+      console.log(`📊 [Google Vision] Performance: Confidence=${confidence}%, Tokens=${response!.tokensUsed}`);
 
       return {
         attributes,
         confidence,
-        tokensUsed: response.tokensUsed,
-        inputTokens: response.inputTokens || 0,
-        outputTokens: response.outputTokens || 0,
-        apiCost: response.apiCost || 0,
+        tokensUsed: response!.tokensUsed,
+        inputTokens: response!.inputTokens || 0,
+        outputTokens: response!.outputTokens || 0,
+        apiCost: response!.apiCost || 0,
         modelUsed: this.config.model as any,
         processingTime,
         discoveries: [],
