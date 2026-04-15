@@ -1,4 +1,4 @@
-import { getMcCodeByMajorCategory, getDivisionByMajorCategory, getSubDivisionByMajorCategory } from '../utils/mcCodeMapper';
+import { getMcCodeByMajorCategory, getDivisionByMajorCategory, getSubDivisionByMajorCategory, getHsnCodeByMcCode } from '../utils/mcCodeMapper';
 import { prismaClient as prisma } from '../utils/prisma';
 import { calculateMrpFromRate, parseNumericValue } from '../utils/mrpCalculator';
 import { mvgrMappingService } from './mvgrMappingService';
@@ -125,6 +125,7 @@ export class FlatteningService {
             // All 41 Attributes
             majorCategory, // mc code list-valid major category (mc des) only
             mcCode: mappedMcCode,
+            hsnTaxCode: mappedMcCode ? (getHsnCodeByMcCode(mappedMcCode)?.toString() ?? null) : null,
             vendorName: resultsMap.get('vendor_name'),
             designNumber: resultsMap.get('design_number'),
             pptNumber: resultsMap.get('ppt_number'),
