@@ -4,20 +4,20 @@ import Anthropic from '@anthropic-ai/sdk';
 import { FULL_WEAVE_CLASSIFICATION_GUIDANCE } from '../prompts/fabricWeaveGuidance';
 
 export interface ClaudeVLMConfig {
-  model: 'claude-3-5-sonnet-20241022' | 'claude-3-opus-20240229' | 'claude-3-sonnet-20240229' | 'claude-3-haiku-20240307';
+  model: string;
   maxTokens: number;
   temperature: number;
   timeout: number;
 }
 
 export class ClaudeVLMProvider implements VLMProvider {
-  public readonly name = 'Claude 3.5 Sonnet';
+  public readonly name = 'Claude Sonnet 4.5';
   private config: ClaudeVLMConfig;
   private client: Anthropic | null = null;
 
   constructor(config?: Partial<ClaudeVLMConfig>) {
     this.config = {
-      model: 'claude-3-5-sonnet-20241022',
+      model: 'claude-sonnet-4-5',
       maxTokens: 4000,
       temperature: 0.1,
       timeout: 120000,

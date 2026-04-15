@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Card, Input, Select, Space, Table, Tag, Typography, Empty, message, Modal, Image, Descriptions, Form } from 'antd';
+import { Button, Card, Input, Select, Space, Table, Tag, Typography, Empty, message, Modal, Image, Descriptions, Form, Spin } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import { APP_CONFIG } from '../../../constants/app/config';
 import type { SchemaItem } from '../../../shared/types/extraction/ExtractionTypes';
@@ -119,6 +119,116 @@ const EDITABLE_ATTRIBUTE_DEFINITIONS: EditableAttributeDefinition[] = [
   { key: 'year', label: 'Year', field: 'year' },
   { key: 'article_type', label: 'Article Type', field: 'articleType' },
 ];
+
+// ── Variant sub-table (read-only) used in the Products history view ───────────
+
+type VariantRow = {
+  id: string;
+  variantSize: string | null;
+  variantColor: string | null;
+  approvalStatus: string | null;
+  majorCategory: string | null;
+};
+
+const VariantReadOnlySubTable: React.FC<{ jobId: string }> = ({ jobId }) => {
+  const [variants, setVariants] = useState<VariantRow[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const fetch_ = async () => {
+      setLoading(true);
+      try {
+        const token = localStorage.getItem('authToken');
+        const resp = await fetch(
+          `${APP_CONFIG.api.baseURL}/approver/items/${encodeURIComponent(jobId)}/variants`,
+          { headers: token ? { Authorization: `Bearer ${token}` } : undefined }
+        );
+        if (!resp.ok) return;
+        const result = await resp.json();
+        const data: VariantRow[] = (result.data || result).map((v: any) => ({
+          id: String(v.id),
+          variantSize: v.variantSize ?? null,
+          variantColor: v.variantColor ?? null,
+          approvalStatus: v.approvalStatus ?? null,
+          majorCategory: v.majorCategory ?? null,
+        }));
+        setVariants(data);
+      } catch {
+        // silently ignore — variants are supplementary
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetch_();
+  }, [jobId]);
+
+  if (loading) {
+    return (
+      <div style={{ padding: '12px 0', textAlign: 'center' }}>
+        <Spin size="small" />
+        <Typography.Text type="secondary" style={{ marginLeft: 8 }}>Loading variants…</Typography.Text>
+      </div>
+    );
+  }
+
+  if (variants.length === 0) {
+    return (
+      <Typography.Text type="secondary" style={{ padding: '8px 16px', display: 'block' }}>
+        No variants for this article.
+      </Typography.Text>
+    );
+  }
+
+  return (
+    <div style={{ padding: '8px 16px', background: '#fafafa', borderRadius: 6 }}>
+      <Typography.Text strong style={{ fontSize: 13, marginBottom: 8, display: 'block' }}>
+        Variants ({variants.length})
+      </Typography.Text>
+      <Table<VariantRow>
+        dataSource={variants}
+        rowKey="id"
+        size="small"
+        pagination={false}
+        scroll={{ x: 'max-content' }}
+        columns={[
+          {
+            title: 'Size',
+            dataIndex: 'variantSize',
+            key: 'variantSize',
+            width: 90,
+            render: (v: string | null) => v || <Typography.Text type="secondary">—</Typography.Text>,
+          },
+          {
+            title: 'Color',
+            dataIndex: 'variantColor',
+            key: 'variantColor',
+            width: 140,
+            render: (v: string | null) =>
+              v ? <Tag color="blue">{v}</Tag> : <Typography.Text type="secondary">—</Typography.Text>,
+          },
+          {
+            title: 'Status',
+            dataIndex: 'approvalStatus',
+            key: 'approvalStatus',
+            width: 110,
+            render: (status: string | null) => {
+              const s = status || 'PENDING';
+              const color = s === 'APPROVED' ? 'green' : s === 'REJECTED' ? 'red' : 'gold';
+              return <Tag color={color}>{s}</Tag>;
+            },
+          },
+          {
+            title: 'Major Category',
+            dataIndex: 'majorCategory',
+            key: 'majorCategory',
+            width: 160,
+            render: (v: string | null) => v || <Typography.Text type="secondary">—</Typography.Text>,
+          },
+        ]}
+      />
+    </div>
+  );
+};
 
 export default function Products() {
   const user = localStorage.getItem('user');
@@ -848,6 +958,13 @@ export default function Products() {
               dataSource={filteredRows}
               rowKey={(row) => row.key}
               size="small"
+              expandable={{
+                expandedRowRender: (record) => (
+                  <VariantReadOnlySubTable jobId={record.flatData?.id || record.jobId} />
+                ),
+                expandRowByClick: false,
+                rowExpandable: () => true,
+              }}
               pagination={{
                 pageSize: 50,
                 showSizeChanger: true,

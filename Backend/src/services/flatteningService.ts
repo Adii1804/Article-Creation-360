@@ -2,6 +2,17 @@ import { getMcCodeByMajorCategory, getDivisionByMajorCategory, getSubDivisionByM
 import { prismaClient as prisma } from '../utils/prisma';
 import { calculateMrpFromRate, parseNumericValue } from '../utils/mrpCalculator';
 import { mvgrMappingService } from './mvgrMappingService';
+import { buildArticleDescription } from '../utils/articleDescriptionBuilder';
+import { getSegmentByCategoryAndMrp } from '../utils/segmentRangeMapper';
+
+function getCurrentSeasonCode(): string {
+    const month = new Date().getMonth() + 1;
+    const yr = String(new Date().getFullYear()).slice(-2);
+    if (month <= 3) return `SP${yr}`;
+    if (month <= 6) return `S${yr}`;
+    if (month <= 9) return `A${yr}`;
+    return `W${yr}`;
+}
 
 export class FlatteningService {
     private extractNumericWeight(value: unknown): string | null {
@@ -192,6 +203,34 @@ export class FlatteningService {
               || null,
             referenceArticleNumber: resultsMap.get('reference_article_number') || null,
             referenceArticleDescription: resultsMap.get('reference_article_description') || null,
+
+            // Auto-populated business fields
+            year: String(new Date().getFullYear()),
+            season: getCurrentSeasonCode(),
+            segment: mappedMcCode ? (getSegmentByCategoryAndMrp(rawMajorCategory, finalMrp) ?? null) : null,
+            articleDescription: buildArticleDescription({
+                yarn1: resultsMap.get('yarn_01'),
+                weave: resultsMap.get('weave'),
+                mFab2: resultsMap.get('m_fab2'),
+                fabricMainMvgr: resultsMap.get('fabric_main_mvgr'),
+                lycra: resultsMap.get('lycra_non_lycra') || resultsMap.get('lycra_non\nlycra'),
+                neck: resultsMap.get('neck'),
+                sleeve: resultsMap.get('sleeve'),
+                fatherBelt: resultsMap.get('father_belt'),
+                fit: resultsMap.get('fit'),
+                pattern: resultsMap.get('pattern'),
+                length: resultsMap.get('length'),
+                printType: resultsMap.get('print_type'),
+                printPlacement: resultsMap.get('print_placement'),
+                printStyle: resultsMap.get('print_style'),
+                embroidery: resultsMap.get('embroidery'),
+                pocketType: resultsMap.get('pocket_type'),
+                vendorCode: resultsMap.get('vendor_code') || resultsMap.get('vendor code') || existingVendorCode,
+                designNumber: resultsMap.get('design_number'),
+                size: resultsMap.get('size'),
+            }),
+            fashionGrid: resultsMap.get('fashion_grid') || resultsMap.get('fashiongrid') || null,
+            articleType: resultsMap.get('article_type') || resultsMap.get('articletype') || null,
         };
     }
 

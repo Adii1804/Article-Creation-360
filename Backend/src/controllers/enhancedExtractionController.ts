@@ -13,13 +13,14 @@ import { getHsnCodeByMcCode } from '../utils/mcCodeMapper';
 import { getSegmentByCategoryAndMrp } from '../utils/segmentRangeMapper';
 import { buildArticleDescription } from '../utils/articleDescriptionBuilder';
 import { duplicateForKidsDivision } from '../services/kidsDivisionDuplicationService';
+import { createVariantsForGeneric } from '../services/variantCreationService';
 
 export class EnhancedExtractionController {
   private vlmService = new VLMService();
   private schemaService = new SchemaService();
 
   private async persistExtractionJob(params: {
-    image: string;
+    image: string | null;
     schema: SchemaItem[];
     categoryName?: string;
     resolvedCategoryCode?: string;
@@ -280,7 +281,7 @@ export class EnhancedExtractionController {
         data: {
           userId: userId ?? null,
           categoryId: fallbackCategory.id,
-          imageUrl: image,
+          imageUrl: image ?? '',
           status: 'COMPLETED',
           aiModel: result.modelUsed ?? null,
           processingTimeMs: result.processingTime ?? null,
@@ -450,6 +451,13 @@ export class EnhancedExtractionController {
       // blocks the main response or propagates errors.
       if (flatId) {
         void duplicateForKidsDivision(flatId);
+      }
+
+      // ── Variant Creation ─────────────────────────────────────────────────
+      // Fire-and-forget: create size variants from the variant-sizes-mapping.xlsx
+      // for the new generic article. Never blocks the main response.
+      if (flatId) {
+        void createVariantsForGeneric(flatId);
       }
 
       return {
@@ -834,7 +842,7 @@ export class EnhancedExtractionController {
       console.log(`✅ Enhanced VLM Extraction Complete - Confidence: ${result.confidence}%, Time: ${result.processingTime}ms`);
 
       // Upload base64 image to Cloudflare R2
-      let imagePath = '';
+      let imagePath: string | null = null;
       try {
         // Convert base64 to buffer
         const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
@@ -862,28 +870,11 @@ export class EnhancedExtractionController {
         console.log(`   UUID: ${uploadResult.uuid}`);
         console.log(`   Path: ${uploadResult.key}`);
       } catch (uploadError: any) {
-        console.error('❌ R2 Upload Failed for base64 image:', uploadError);
-        console.error('   Error details:', uploadError.message);
-
-        // Return error to user - don't proceed without image storage
-        res.status(500).json({
-          success: false,
-          error: 'Failed to upload image to cloud storage',
-          details: uploadError.message,
-          timestamp: Date.now()
-        });
-        return;
-      }
-
-      // Verify we have a valid image URL
-      if (!imagePath) {
-        console.error('❌ No image URL after upload');
-        res.status(500).json({
-          success: false,
-          error: 'Image upload succeeded but no URL was returned',
-          timestamp: Date.now()
-        });
-        return;
+        console.error('❌ R2 Upload Failed for base64 image:', uploadError.message);
+        // Non-fatal: continue with extraction data saved, image URL will be null
+        // User can re-upload image later if needed
+        console.warn('⚠️ Continuing extraction save without image URL (R2 unavailable)');
+        imagePath = null;
       }
 
       const parsedFolderFromFileName = typeof fileName === 'string' && (fileName.includes('/') || fileName.includes('\\'))

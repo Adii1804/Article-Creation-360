@@ -6,36 +6,26 @@ type ArticleDescriptionSource = {
   lycra?: unknown;
   neck?: unknown;
   sleeve?: unknown;
-  collar?: unknown;
-  placket?: unknown;
-  bottomFold?: unknown;
-  frontOpenStyle?: unknown;
-  pocketType?: unknown;
+  fatherBelt?: unknown;
   fit?: unknown;
   pattern?: unknown;
   length?: unknown;
-  drawcord?: unknown;
-  button?: unknown;
-  zipper?: unknown;
-  zipColour?: unknown;
   printType?: unknown;
-  printStyle?: unknown;
   printPlacement?: unknown;
-  patches?: unknown;
-  patchesType?: unknown;
+  printStyle?: unknown;
   embroidery?: unknown;
-  embroideryType?: unknown;
-  wash?: unknown;
-  fatherBelt?: unknown;
-  childBelt?: unknown;
-  composition?: unknown;
-  finish?: unknown;
-  gsm?: unknown;
-  shade?: unknown;
+  pocketType?: unknown;
+  vendorCode?: unknown;
+  designNumber?: unknown;
+  size?: unknown;
 };
 
 const ARTICLE_DESCRIPTION_MAX_LENGTH = 40;
 
+// Order as specified: YARN-WEAVE-M_FAB2-FABRIC_MAIN_MVGR-LYCRA-NECK-SLEEVES-
+// FATHER BELT-FIT-PATTERN-LENGTH-PRINT_TYPE-PRINT_PLACEMENT-PRINT_STYLE-
+// EMBROIDERY-POCKET-VND-DZN NO-SIZE
+// Fallback: if an attribute is empty, skip it and use the next available one
 const ARTICLE_DESCRIPTION_FIELDS: Array<keyof ArticleDescriptionSource> = [
   'yarn1',
   'weave',
@@ -44,32 +34,18 @@ const ARTICLE_DESCRIPTION_FIELDS: Array<keyof ArticleDescriptionSource> = [
   'lycra',
   'neck',
   'sleeve',
-  'collar',
-  'placket',
-  'bottomFold',
-  'frontOpenStyle',
-  'pocketType',
+  'fatherBelt',
   'fit',
   'pattern',
   'length',
-  'drawcord',
-  'button',
-  'zipper',
-  'zipColour',
   'printType',
-  'printStyle',
   'printPlacement',
-  'patches',
-  'patchesType',
+  'printStyle',
   'embroidery',
-  'embroideryType',
-  'wash',
-  'fatherBelt',
-  'childBelt',
-  'composition',
-  'finish',
-  'gsm',
-  'shade'
+  'pocketType',
+  'vendorCode',
+  'designNumber',
+  'size',
 ];
 
 const toShortToken = (value: unknown): string | null => {
@@ -91,7 +67,7 @@ export const buildArticleDescription = (
 
   for (const field of ARTICLE_DESCRIPTION_FIELDS) {
     const token = toShortToken(source[field]);
-    if (!token) continue;
+    if (!token) continue; // fallback: skip empty, use next
 
     if (!description) {
       description = token.length > maxLength ? token.slice(0, maxLength) : token;

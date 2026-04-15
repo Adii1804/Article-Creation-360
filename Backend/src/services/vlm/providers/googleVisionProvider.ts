@@ -4,7 +4,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { FULL_WEAVE_CLASSIFICATION_GUIDANCE } from '../prompts/fabricWeaveGuidance';
 
 export interface GoogleVisionConfig {
-  model: 'gemini-2.5-pro' | 'gemini-2.5-flash' | 'gemini-2.0-flash' | 'gemini-pro-vision' | 'gemini-3-pro-image-preview';
+  model: string;
   maxTokens: number;
   temperature: number;
   timeout: number;
@@ -17,10 +17,10 @@ export class GoogleVisionProvider implements VLMProvider {
 
   constructor(config?: Partial<GoogleVisionConfig>) {
     this.config = {
-      model: 'gemini-2.5-pro',  // Highest quality model for maximum accuracy
-      maxTokens: 12000,  // Maximum tokens for comprehensive analysis
-      temperature: 0.0,  // Zero temperature for maximum consistency
-      timeout: 180000,  // 3 minutes for thorough processing
+      model: 'gemini-2.0-flash',  // No thinking mode, fast, good accuracy for structured extraction
+      maxTokens: 8000,
+      temperature: 0.0,
+      timeout: 60000,
       ...config
     };
     this.initializeClient();
@@ -51,7 +51,7 @@ export class GoogleVisionProvider implements VLMProvider {
         const ocrResponse = await this.callGeminiVision(request.image, ocrPrompt);
         ocrMetadata = this.parseOcrResponse(ocrResponse.content);
         if (ocrMetadata) {
-          console.log('🧾 [OCR] Pre-pass metadata extracted');
+          console.log(`🧾 [OCR] Pre-pass metadata extracted: colour="${ocrMetadata.colour}", size="${ocrMetadata.size}", gsm="${ocrMetadata.gsm}"`);
         }
       } catch (ocrError) {
         console.warn('⚠️ [OCR] Pre-pass failed, continuing with main extraction');
@@ -61,6 +61,21 @@ export class GoogleVisionProvider implements VLMProvider {
       const response = await this.callGeminiVision(request.image, prompt);
 
       const { attributes, extractedMetadata } = await this.parseResponse(response.content, request.schema, ocrMetadata || undefined);
+
+      // Simple direct fallback: if colour is still null but OCR extracted it, use it directly
+      if (!attributes['colour'] && ocrMetadata?.colour) {
+        const colourVal = String(ocrMetadata.colour).trim();
+        console.log(`🎨 [Colour Fallback] Using OCR board colour directly: "${colourVal}"`);
+        attributes['colour'] = {
+          rawValue: colourVal,
+          schemaValue: colourVal,
+          visualConfidence: 90,
+          isNewDiscovery: false,
+          mappingConfidence: 90,
+          reasoning: 'Colour read directly from board/tag OCR'
+        };
+      }
+
       const confidence = this.calculateConfidence(attributes);
 
       const processingTime = Date.now() - startTime;
@@ -109,17 +124,15 @@ export class GoogleVisionProvider implements VLMProvider {
       ? `\nCATEGORY: ${categoryName} (${department}/${subDepartment})`
       : '';
 
-    // Build schema with COMPLETE allowed values list - AI MUST use ONLY these values
+    // Build schema with allowed values — short forms only to reduce token count
     const schemaDefinition = schema.map(item => {
       const allowedValues = item.allowedValues?.length
-        ? `\n  📌 ONLY USE THESE VALUES: ${item.allowedValues.map(av => {
+        ? ` [${item.allowedValues.map(av => {
           if (typeof av === 'string') return av;
-          const shortForm = av.shortForm || '';
-          const fullForm = av.fullForm || '';
-          return fullForm && shortForm ? `${shortForm} (${fullForm})` : (shortForm || fullForm);
-        }).join(' | ')}`
+          return av.shortForm || av.fullForm || '';
+        }).filter(Boolean).join('|')}]`
         : '';
-      return `- ${item.key}: ${item.label}${allowedValues}`;
+      return `${item.key}${allowedValues}`;
     }).join('\n');
 
     const ocrHintBlock = ocrHint ? `
@@ -283,7 +296,7 @@ PRINT TYPE STRICT RULES (CRITICAL):
 
 NOT IN DATASET → RETURN NULL (do not use): BK LESS, MUFFLER, SHRUG/SHRUGS, WITH INNER
 
-📋 YOUR DATABASE (These are the ONLY values you know):
+📋 ALLOWED VALUES (key [val1|val2|...] — use ONLY these exact values, NULL if not present):
 ${schemaDefinition}
 ${ocrHintBlock}
 
@@ -552,12 +565,10 @@ STEP 3: TAG/LABEL READING (Critical for metadata)
 • For MAJOR CATEGORY, use OCR only (do NOT infer from garment). Preserve exact text/punctuation from the board (e.g., "M.JEANS").
 
 COLOR OCR (SPECIAL RULE):
-• Prefer the WHITE BOARD/TAG colour when present and valid in the database
-• If the board colour is a close variant of what you see (same colour family), KEEP the board colour
-• If the board colour is clearly wrong (e.g., board says BLU but garment is not blue), use the garment colour that matches the database
-• First, locate a CLR/COLOR/COLOUR field on the board; extract its value exactly and map to database
-• If CLR/COLOR/COLOUR exists but does NOT match any database value, scan the rest of the board text for a standalone colour token that matches the database
-• If no board colour matches the database, fall back to garment colour ONLY if it matches a database value; otherwise return null
+• PRIORITY 1: Read colour from the WHITE BOARD/TAG — look for CLR/COLOR/COLOUR labeled field OR any standalone colour code token (e.g., L_BL, ECRU, WHT, NVY, BLK)
+• PRIORITY 2: If no colour on board, look at the garment/fabric itself and extract its colour
+• Return the colour value exactly as written on the board — do NOT require database validation, do NOT return null just because a value is not in an allowed list
+• Only return null if there is genuinely no colour information anywhere in the image (board or garment)
 • Do NOT use OCR for any other attribute except: division, vendor_name, design_number, ppt_number, rate, size, major_category, gsm, weight, yarn_01, yarn_02, fabric_main_mvgr
 • Size must be returned exactly as written (e.g., "S-XXL", "30-36"), no normalization
 
@@ -920,11 +931,18 @@ Return JSON only (no markdown):
 }
 
 IMPORTANT:
-• For size, return exactly what is written (e.g., "S-XXL", "30-36", "L/XL")
+• For size, return EXACTLY what is written on the board (e.g., "S-XXL", "30-36", "L/XL", "M", "FREE SIZE"). Do NOT normalize or change it.
 • For major_category, return exact text/punctuation (e.g., "M.JEANS")
 • For g_weight/weight/Numeric/G, return only the numeric value (no unit like G, GSM, gm)
 • If a FAB/FABRIC line exists, copy the full line into fab_line (do NOT parse)
-• If CLR/COLOR/COLOUR is present, copy the value into colour
+
+COLOUR EXTRACTION (READ CAREFULLY):
+• STEP 1 — Look for a field explicitly labeled CLR, COLOR, COLOUR, CLR:, COLOR:, COL: on the board → copy its value exactly
+• STEP 2 — If no labeled colour field, scan ALL lines of board text for a standalone token that looks like a colour code (e.g., "L_BL", "ECRU", "WHT", "NVY", "D_BL", "M_GRY", "BLK", "RED", "GRN", "OFW"). These codes typically appear on their own line or after a slash/dash.
+• STEP 3 — If still not found, look at the fabric/garment itself and describe the colour as a short code (e.g., "WHT" for white, "BLK" for black, "NVY" for navy blue)
+• Return whatever is found — do NOT return null just because it is not labeled. If you see a colour code anywhere, put it in the colour field.
+• If truly no colour information anywhere → return null
+
 • If no board/tag visible, return all fields as null
 `;
   }
@@ -956,8 +974,10 @@ IMPORTANT:
       model: this.config.model,
       generationConfig: {
         maxOutputTokens: this.config.maxTokens,
-        temperature: this.config.temperature
-      }
+        temperature: this.config.temperature,
+        // Disable thinking mode (gemini-2.5-flash enables it by default, consuming output budget)
+        ...(this.config.model.includes('2.5') ? { thinkingConfig: { thinkingBudget: 0 } } : {})
+      } as any
     });
 
     // Extract base64 data and mime type
@@ -1028,8 +1048,25 @@ IMPORTANT:
 
   private async parseResponse(content: string, schema: any[], ocrHint?: Record<string, any>): Promise<{ attributes: AttributeData; extractedMetadata?: any }> {
     try {
-      const cleanContent = content.replace(/```json\n?|\n?```/g, '').trim();
-      const parsed = JSON.parse(cleanContent);
+      const cleanContent = (content || '').replace(/```json\n?|\n?```/g, '').trim();
+      if (!cleanContent) {
+        throw new Error('Empty response from Google Vision provider');
+      }
+
+      let parsed: any;
+      try {
+        parsed = JSON.parse(cleanContent);
+      } catch {
+        // Truncated JSON — try to recover by closing open braces
+        let repaired = cleanContent;
+        // Count open vs closed braces to determine how many to append
+        const opens = (repaired.match(/\{/g) || []).length;
+        const closes = (repaired.match(/\}/g) || []).length;
+        // Remove trailing incomplete string/value before closing
+        repaired = repaired.replace(/,?\s*"[^"]*$/, '').replace(/,\s*$/, '');
+        for (let i = 0; i < opens - closes; i++) repaired += '}';
+        parsed = JSON.parse(repaired);
+      }
 
       const extractedMetadata = parsed.metadata || null;
       const attributeSource = parsed.attributes || parsed;
@@ -1215,18 +1252,56 @@ IMPORTANT:
           continue;
         }
 
+        // SIZE: prefer OCR board value exactly as written, fall back to AI response
+        if (key === 'size') {
+          const ocrSize = mergedMetadata?.size || metadataLower?.['size'] || null;
+          const ocrSizeStr = ocrSize ? String(ocrSize).trim() : null;
+          if (ocrSizeStr) {
+            attributes[key] = {
+              rawValue: ocrSizeStr,
+              schemaValue: ocrSizeStr,
+              visualConfidence: 95,
+              isNewDiscovery: false,
+              mappingConfidence: 95,
+              reasoning: 'Size read directly from board/tag OCR'
+            };
+          } else {
+            // fallback: use AI-extracted value without strict validation
+            const aiSizeRaw = this.normalizeNullValue(attributeSource?.[key]?.rawValue ?? attributeSource?.[key]?.schemaValue ?? null);
+            attributes[key] = aiSizeRaw ? {
+              rawValue: aiSizeRaw,
+              schemaValue: aiSizeRaw,
+              visualConfidence: attributeSource?.[key]?.visualConfidence ?? 75,
+              isNewDiscovery: false,
+              mappingConfidence: 75,
+              reasoning: 'Size inferred from AI analysis'
+            } : null;
+          }
+          continue;
+        }
+
         if (key === 'colour') {
-          const visualRaw = attributeSource?.[key]?.rawValue ?? attributeSource?.[key]?.schemaValue ?? null;
-          const visualValidated = visualRaw ? this.validateAgainstAllowedValues(this.normalizeNullValue(visualRaw), schemaItem) : null;
+          const visualRaw = this.normalizeNullValue(attributeSource?.[key]?.rawValue ?? attributeSource?.[key]?.schemaValue ?? null);
+          // For colour: if no allowed values, accept any value (free-text colour codes like L_BL, ECRU, etc.)
+          const hasAllowedValues = schemaItem.allowedValues && schemaItem.allowedValues.length > 0;
+          const visualValidated = visualRaw
+            ? (hasAllowedValues ? this.validateAgainstAllowedValues(visualRaw, schemaItem) : visualRaw)
+            : null;
 
-          const metadataColor = mergedMetadata?.colour || mergedMetadata?.color || mergedMetadata?.clr || null;
-          let boardValidated = metadataColor ? this.validateAgainstAllowedValues(metadataColor, schemaItem) : null;
+          // Board/OCR colour: use directly without validation (board codes are authoritative)
+          const metadataColor = mergedMetadata?.colour || mergedMetadata?.color || mergedMetadata?.clr || mergedMetadata?.['colour'] || null;
+          let boardValidated: string | null = metadataColor ? String(metadataColor).trim() || null : null;
 
-          if (!boardValidated && mergedMetadata && typeof mergedMetadata === 'object') {
-            const metadataText = Object.values(mergedMetadata)
-              .filter(v => typeof v === 'string')
-              .join(' ');
-            boardValidated = this.validateAgainstAllowedValues(metadataText, schemaItem);
+          // If still no board colour, scan raw lines for colour-code pattern
+          if (!boardValidated && Array.isArray(mergedMetadata?.rawLines)) {
+            const colourCodePattern = /^[A-Z][A-Z0-9_]{1,10}$/;
+            for (const line of (mergedMetadata.rawLines as string[])) {
+              const token = String(line).trim();
+              if (colourCodePattern.test(token)) {
+                boardValidated = token;
+                break;
+              }
+            }
           }
 
           let finalColor: string | null = null;

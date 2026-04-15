@@ -163,6 +163,9 @@ export class FlatExtractionController {
                 where.userId = userId;
             }
 
+            // Only show generic (original) articles — not size/color variant copies
+            where.isGeneric = true;
+
             const flatResults = await prisma.extractionResultFlat.findMany({
                 where,
                 orderBy: [

@@ -15,7 +15,8 @@
       "Bash(node -e \"const XLSX = require\\('xlsx'\\); const wb = XLSX.readFile\\('C:/Users/Administrator/Desktop/Ai-fashion/Backend/data/kids-division-mapping.xlsx'\\); const ws = wb.Sheets[wb.SheetNames[0]]; const data = XLSX.utils.sheet_to_json\\(ws\\); console.log\\('Rows:', data.length, '| Cols:', Object.keys\\(data[0]\\).join\\(', '\\)\\);\")",
       "Bash(node -e \"const XLSX = require\\('./node_modules/xlsx'\\); const wb = XLSX.readFile\\('./data/kids-division-mapping.xlsx'\\); const ws = wb.Sheets[wb.SheetNames[0]]; const data = XLSX.utils.sheet_to_json\\(ws\\); console.log\\('Rows:', data.length, '| Cols:', Object.keys\\(data[0]\\).join\\(', '\\)\\);\")",
       "Bash(find \"/c/Users/Administrator/Desktop/Ai-fashion/Backend/src\" -name \"*.ts\" -type f -exec grep -l \"division.*majorCategory\\\\|majorCategory.*division\" {} \\\\;)",
-      "Bash(find \"/c/Users/Administrator/Desktop/Ai-fashion/Backend/src\" -name \"*.ts\" -type f -exec grep -l \"division.*majorCategory\\\\|update.*division\\\\|override.*division\" {} \\\\;)"
+      "Bash(find \"/c/Users/Administrator/Desktop/Ai-fashion/Backend/src\" -name \"*.ts\" -type f -exec grep -l \"division.*majorCategory\\\\|update.*division\\\\|override.*division\" {} \\\\;)",
+      "Bash(npm install:*)"
     ]
   }
 }

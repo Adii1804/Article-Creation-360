@@ -7,6 +7,7 @@ import { syncApprovedItemsToSap } from '../services/sapSyncService';
 import { storageService } from '../services/storageService';
 import { ARTICLE_DESCRIPTION_SOURCE_FIELDS, buildArticleDescription } from '../utils/articleDescriptionBuilder';
 import { prismaClient as prisma } from '../utils/prisma';
+import { syncGenericToVariants, addColorVariants } from '../services/variantCreationService';
 
 export class ApproverController {
     private static extractNumericWeight(value: unknown): string | null {
@@ -178,8 +179,12 @@ export class ApproverController {
             })
         );
 
-        const results = await prisma.$transaction(updates);
-        return results.reduce((sum, result) => sum + result.count, 0);
+        let total = 0;
+        for (const update of updates) {
+            const result = await update;
+            total += result.count;
+        }
+        return total;
     }
 
     private static async backfillMissingHsnCodes(baseWhere: any): Promise<number> {
@@ -218,8 +223,12 @@ export class ApproverController {
             })
         );
 
-        const results = await prisma.$transaction(updates);
-        return results.reduce((sum, result) => sum + result.count, 0);
+        let total = 0;
+        for (const update of updates) {
+            const result = await update;
+            total += result.count;
+        }
+        return total;
     }
 
     private static async backfillMissingSegments(baseWhere: any): Promise<number> {
@@ -260,8 +269,12 @@ export class ApproverController {
             })
         );
 
-        const results = await prisma.$transaction(updates);
-        return results.reduce((sum, result) => sum + result.count, 0);
+        let total = 0;
+        for (const update of updates) {
+            const result = await update;
+            total += result.count;
+        }
+        return total;
     }
 
     private static async backfillMissingYears(baseWhere: any): Promise<number> {
@@ -387,8 +400,52 @@ export class ApproverController {
 
         if (updates.length === 0) return 0;
 
-        const results = await prisma.$transaction(updates);
-        return results.reduce((sum, result) => sum + result.count, 0);
+        let total = 0;
+        for (const update of updates) {
+            const result = await update;
+            total += result.count;
+        }
+        return total;
+    }
+
+    // Backfill variantColor (and colour) for existing size variants that are missing them.
+    // Looks up each variant's generic article and copies its colour.
+    private static async backfillVariantColors(): Promise<number> {
+        // Find all non-generic variants that are missing variantColor OR colour
+        const variants = await prisma.extractionResultFlat.findMany({
+            where: {
+                isGeneric: false,
+                genericArticleId: { not: null },
+                OR: [
+                    { variantColor: null },
+                    { colour: null }
+                ]
+            },
+            select: { id: true, colour: true, variantColor: true, genericArticleId: true }
+        });
+
+        if (variants.length === 0) return 0;
+
+        // Group by genericArticleId to batch generic lookups
+        const genericIds = [...new Set(variants.map(v => v.genericArticleId!))];
+        const generics = await prisma.extractionResultFlat.findMany({
+            where: { id: { in: genericIds } },
+            select: { id: true, colour: true }
+        });
+        const genericColourMap = new Map(generics.map(g => [g.id, g.colour]));
+
+        let count = 0;
+        for (const v of variants) {
+            const colour = v.colour || genericColourMap.get(v.genericArticleId!) || null;
+            if (!colour) continue; // skip if neither variant nor generic has colour
+            await prisma.extractionResultFlat.update({
+                where: { id: v.id },
+                data: { variantColor: colour, colour }
+            });
+            count++;
+        }
+        console.log(`[Backfill] Fixed variantColor for ${count} variant rows`);
+        return count;
     }
 
     // Run once at server startup to backfill missing computed fields across all records.
@@ -401,12 +458,14 @@ export class ApproverController {
                 await ApproverController.backfillMissingYears({});
                 await ApproverController.backfillMissingSeasonCodes({});
                 await ApproverController.refreshArticleDescriptions({});
+                await ApproverController.backfillVariantColors();
                 console.log('✅ Startup backfills completed');
             } catch (err: any) {
                 console.warn('⚠️ Startup backfills failed (non-critical):', err?.message);
             }
         };
-        run();
+        // Delay startup backfills by 5 seconds to let the server fully initialize
+        setTimeout(() => { run(); }, 5000);
     }
 
     // Get items for approver dashboard
@@ -518,6 +577,9 @@ export class ApproverController {
                 ];
             }
 
+            // Only show generic articles in the main list (variants are fetched via /items/:id/variants)
+            where.isGeneric = true;
+
             const skip = (Number(page) - 1) * Number(limit);
 
             const items = await prisma.extractionResultFlat.findMany({
@@ -525,12 +587,83 @@ export class ApproverController {
                 skip,
                 take: Number(limit),
                 orderBy: { createdAt: 'desc' },
-                include: {
-                    job: {
-                        select: {
-                            status: true
-                        }
-                    }
+                select: {
+                    id: true,
+                    imageName: true,
+                    imageUrl: true,
+                    imageUncPath: true,
+                    articleNumber: true,
+                    division: true,
+                    subDivision: true,
+                    majorCategory: true,
+                    vendorName: true,
+                    vendorCode: true,
+                    designNumber: true,
+                    pptNumber: true,
+                    referenceArticleNumber: true,
+                    referenceArticleDescription: true,
+                    approvalStatus: true,
+                    sapSyncStatus: true,
+                    sapSyncMessage: true,
+                    sapArticleId: true,
+                    createdAt: true,
+                    updatedAt: true,
+                    userName: true,
+                    source: true,
+                    rate: true,
+                    mrp: true,
+                    size: true,
+                    colour: true,
+                    fabricMainMvgr: true,
+                    pattern: true,
+                    fit: true,
+                    neck: true,
+                    neckDetails: true,
+                    sleeve: true,
+                    length: true,
+                    collar: true,
+                    placket: true,
+                    bottomFold: true,
+                    frontOpenStyle: true,
+                    pocketType: true,
+                    composition: true,
+                    gsm: true,
+                    weight: true,
+                    finish: true,
+                    shade: true,
+                    lycra: true,
+                    yarn1: true,
+                    yarn2: true,
+                    weave: true,
+                    macroMvgr: true,
+                    mainMvgr: true,
+                    mFab2: true,
+                    wash: true,
+                    drawcord: true,
+                    button: true,
+                    zipper: true,
+                    zipColour: true,
+                    fatherBelt: true,
+                    childBelt: true,
+                    printType: true,
+                    printStyle: true,
+                    printPlacement: true,
+                    patches: true,
+                    patchesType: true,
+                    embroidery: true,
+                    embroideryType: true,
+                    mcCode: true,
+                    segment: true,
+                    season: true,
+                    hsnTaxCode: true,
+                    articleDescription: true,
+                    fashionGrid: true,
+                    year: true,
+                    articleType: true,
+                    isGeneric: true,
+                    genericArticleId: true,
+                    variantSize: true,
+                    variantColor: true,
                 }
             });
 
@@ -697,7 +830,9 @@ export class ApproverController {
                 // New business fields
                 'macroMvgr', 'mainMvgr', 'mFab2',
                 'vendorCode', 'mrp', 'mcCode', 'segment', 'season',
-                'hsnTaxCode', 'articleDescription', 'fashionGrid', 'year', 'articleType'
+                'hsnTaxCode', 'articleDescription', 'fashionGrid', 'year', 'articleType',
+                // Variant-specific fields
+                'variantColor', 'variantSize'
             ];
 
             const data: any = {};
@@ -796,7 +931,8 @@ export class ApproverController {
                     fatherBelt: true,
                     childBelt: true,
                     season: true,
-                    year: true
+                    year: true,
+                    isGeneric: true
                 }
             });
 
@@ -888,19 +1024,28 @@ export class ApproverController {
                 data
             });
 
-            // Keep category-wise values strict and consistent for all rows.
-            if (updated.majorCategory) {
+            // Only sync mcCode/hsnTaxCode across rows when majorCategory actually changed.
+            if (data.majorCategory !== undefined && data.majorCategory !== existingItem.majorCategory && updated.majorCategory) {
                 const expectedMcCode = getMcCodeByMajorCategory(updated.majorCategory) || null;
                 const expectedHsnCode = getHsnCodeByMcCode(expectedMcCode) || null;
-                await prisma.extractionResultFlat.updateMany({
-                    where: {
-                        majorCategory: updated.majorCategory
-                    },
-                    data: {
-                        mcCode: expectedMcCode,
-                        hsnTaxCode: expectedHsnCode
-                    }
+                void prisma.extractionResultFlat.updateMany({
+                    where: { majorCategory: updated.majorCategory },
+                    data: { mcCode: expectedMcCode, hsnTaxCode: expectedHsnCode }
                 });
+            }
+
+            // If variantColor was updated on a non-generic, sync colour field too
+            if (!existingItem.isGeneric && data.variantColor !== undefined) {
+                data.colour = data.variantColor;
+                await prisma.extractionResultFlat.update({
+                    where: { id },
+                    data: { colour: data.variantColor }
+                });
+            }
+
+            // If this is a generic article being updated, sync changes to variants (fire-and-forget)
+            if (existingItem.isGeneric) {
+                void syncGenericToVariants(existingItem.id, data);
             }
 
             return res.json(updated);
@@ -929,12 +1074,20 @@ export class ApproverController {
             // RBAC: Enforce scope by role
             ApproverController.applyApproverScope(whereClause, req.user);
 
-            // Ensure selected rows have mcCode persisted before approval.
-            await ApproverController.backfillMissingMcCodes(whereClause);
-            await ApproverController.backfillMissingHsnCodes(whereClause);
-            await ApproverController.backfillMissingYears(whereClause);
-            await ApproverController.backfillMissingSeasonCodes(whereClause);
-            await ApproverController.refreshArticleDescriptions(whereClause);
+            // Lightweight pre-approval fill: only fix missing mcCode/hsnTaxCode on the exact rows being approved
+            const rowsToFix = await prisma.extractionResultFlat.findMany({
+                where: { ...whereClause, mcCode: null, majorCategory: { not: null } },
+                select: { id: true, majorCategory: true }
+            });
+            for (const row of rowsToFix) {
+                const mc = getMcCodeByMajorCategory(row.majorCategory);
+                if (mc) {
+                    void prisma.extractionResultFlat.update({
+                        where: { id: row.id },
+                        data: { mcCode: mc, hsnTaxCode: getHsnCodeByMcCode(mc) || null }
+                    });
+                }
+            }
 
             const result = await prisma.extractionResultFlat.updateMany({
                 where: whereClause,
@@ -1048,6 +1201,24 @@ export class ApproverController {
                 });
             }
 
+            // Auto-approve all variants of approved generic articles
+            const successfullyApprovedIds = ids.filter((id: string) => !failedIds.includes(id));
+            if (successfullyApprovedIds.length > 0) {
+                await prisma.extractionResultFlat.updateMany({
+                    where: {
+                        genericArticleId: { in: successfullyApprovedIds },
+                        isGeneric: false,
+                        approvalStatus: 'PENDING'
+                    },
+                    data: {
+                        approvalStatus: 'APPROVED',
+                        approvedBy: userId ? Number(userId) : null,
+                        approvedAt: new Date(),
+                        sapSyncStatus: 'NOT_SYNCED'
+                    }
+                });
+            }
+
             return res.json({
                 message: 'Items approved successfully',
                 count: result.count,
@@ -1092,6 +1263,22 @@ export class ApproverController {
                 }
             });
 
+            // Auto-reject all variants of rejected generic articles
+            const rejectedIds = ids;
+            await prisma.extractionResultFlat.updateMany({
+                where: {
+                    genericArticleId: { in: rejectedIds },
+                    isGeneric: false
+                },
+                data: {
+                    approvalStatus: 'REJECTED',
+                    sapSyncStatus: SapSyncStatus.NOT_SYNCED,
+                    sapSyncMessage: 'Rejected with generic article',
+                    approvedBy: userId ? Number(userId) : null,
+                    approvedAt: new Date()
+                }
+            });
+
             return res.json({
                 message: 'Items rejected',
                 count: result.count
@@ -1099,6 +1286,55 @@ export class ApproverController {
         } catch (error) {
             console.error('Error rejecting items:', error);
             return res.status(500).json({ error: 'Failed to reject items' });
+        }
+    }
+
+    // Push generic's colour to all variants that have no variantColor set
+    static async syncColorToVariants(req: Request, res: Response) {
+        try {
+            const { id } = req.params;
+            const generic = await prisma.extractionResultFlat.findUnique({
+                where: { id },
+                select: { id: true, colour: true, isGeneric: true }
+            });
+            if (!generic?.isGeneric) return res.status(400).json({ error: 'Not a generic article' });
+            if (!generic.colour) return res.json({ message: 'Generic has no colour to sync', count: 0 });
+
+            const result = await prisma.extractionResultFlat.updateMany({
+                where: { genericArticleId: id, isGeneric: false, variantColor: null },
+                data: { variantColor: generic.colour, colour: generic.colour }
+            });
+            return res.json({ message: `Synced colour to ${result.count} variants`, count: result.count });
+        } catch (err: any) {
+            return res.status(500).json({ error: err.message });
+        }
+    }
+
+    // Get all variants for a generic article
+    static async getVariants(req: Request, res: Response) {
+        try {
+            const { id } = req.params;
+            const variants = await prisma.extractionResultFlat.findMany({
+                where: { genericArticleId: id, isGeneric: false },
+                orderBy: [{ variantColor: 'asc' }, { variantSize: 'asc' }]
+            });
+            return res.json({ data: variants });
+        } catch (err: any) {
+            return res.status(500).json({ error: err.message });
+        }
+    }
+
+    // Add color variants to an existing generic article
+    static async addColor(req: Request, res: Response) {
+        try {
+            const { id } = req.params;
+            const { color } = req.body;
+            if (!color?.trim()) return res.status(400).json({ error: 'Color is required' });
+
+            const count = await addColorVariants(id, color.trim());
+            return res.json({ message: `Created ${count} color variants`, count });
+        } catch (err: any) {
+            return res.status(500).json({ error: err.message });
         }
     }
 

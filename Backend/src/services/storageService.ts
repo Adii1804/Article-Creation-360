@@ -3,6 +3,15 @@ import { S3Client, PutObjectCommand, GetObjectCommand, CopyObjectCommand } from 
 import { Upload } from '@aws-sdk/lib-storage';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID } from 'crypto';
+import { NodeHttpHandler } from '@smithy/node-http-handler';
+import https from 'https';
+
+// Custom HTTPS agent: disables TLS packet-length strict checks that cause
+// EPROTO errors when Node.js OpenSSL rejects R2's TLS handshake on some networks.
+const r2HttpsAgent = new https.Agent({
+    secureOptions: require('constants').SSL_OP_LEGACY_SERVER_CONNECT,
+    keepAlive: true,
+});
 
 export interface UploadResult {
     url: string;
@@ -62,12 +71,15 @@ export class StorageService {
             console.warn('⚠️ Cloudflare R2 credentials missing. Storage service may fail.');
         }
 
+        const s3RequestHandler = new NodeHttpHandler({ httpsAgent: r2HttpsAgent });
+
         this.s3Client = new S3Client({
             region: 'auto',
             endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
             forcePathStyle: true,
             requestChecksumCalculation: 'WHEN_REQUIRED',
             responseChecksumValidation: 'WHEN_REQUIRED',
+            requestHandler: s3RequestHandler,
             credentials: {
                 accessKeyId: accessKeyId || '',
                 secretAccessKey: secretAccessKey || ''
@@ -80,6 +92,7 @@ export class StorageService {
             forcePathStyle: true,
             requestChecksumCalculation: 'WHEN_REQUIRED',
             responseChecksumValidation: 'WHEN_REQUIRED',
+            requestHandler: s3RequestHandler,
             credentials: {
                 accessKeyId: approvedAccessKeyId || '',
                 secretAccessKey: approvedSecretAccessKey || ''

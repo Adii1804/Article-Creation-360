@@ -6,6 +6,7 @@ dotenv.config();
 import express from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
+import compression from 'compression';
 
 // Routes
 import extractionRoutes from './routes/extraction';
@@ -39,6 +40,9 @@ const RATE_LIMIT_MAX = parseInt(process.env.RATE_LIMIT_MAX || '500', 10);
 
 // Trust proxy - required for Cloudflare, load balancers, and rate limiting
 app.set('trust proxy', 1);
+
+// Gzip/Brotli response compression — reduces payload size for JSON-heavy API responses
+app.use(compression());
 
 // Rate limiting middleware
 const limiter = rateLimit({

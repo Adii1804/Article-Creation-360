@@ -98,6 +98,11 @@ export interface ApproverItem {
     embroideryType: string | null;
     fatherBelt: string | null;
     childBelt: string | null;
+    // Variant system fields
+    isGeneric: boolean;
+    genericArticleId: string | null;
+    variantSize: string | null;
+    variantColor: string | null;
 }
 
 const EditableContext = React.createContext<FormInstance<any> | null>(null);
@@ -245,6 +250,7 @@ interface ApproverTableProps {
         pageSize: number;
         onChange: (page: number) => void;
     };
+    expandable?: import('antd/es/table').TableProps<ApproverItem>['expandable'];
 }
 
 // Returns density config based on device pixel ratio (accounts for screen DPI + browser zoom).
@@ -277,6 +283,7 @@ export const ApproverTable: React.FC<ApproverTableProps> = ({
     attributes = [],
     user,
     serverPagination,
+    expandable,
 }) => {
     const [remarksModalOpen, setRemarksModalOpen] = useState(false);
     const [activeRemarks, setActiveRemarks] = useState('');
@@ -757,6 +764,7 @@ export const ApproverTable: React.FC<ApproverTableProps> = ({
                     dataSource={items}
                     loading={loading}
                     size={density.tableSize}
+                    expandable={expandable}
                     pagination={serverPagination ? {
                         total: serverPagination.total,
                         current: serverPagination.current,

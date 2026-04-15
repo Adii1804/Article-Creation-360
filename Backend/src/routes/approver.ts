@@ -29,4 +29,9 @@ router.post('/reject', ApproverController.rejectItems);
 // Refresh image URL (fixes expired signed URLs)
 router.get('/image/:id', ApproverController.getImageUrl);
 
+// Variant routes
+router.get('/items/:id/variants', ApproverController.getVariants);
+router.post('/items/:id/add-color', ApproverController.addColor);
+router.post('/items/:id/sync-color', ApproverController.syncColorToVariants);
+
 export default router;

@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Card, Button, Typography, message, Modal, Form, Input, Select, Row, Col, Tabs, DatePicker } from 'antd';
 import { CheckCircleOutlined, CloseCircleOutlined, ReloadOutlined, DownloadOutlined } from '@ant-design/icons';
 import { ApproverTable } from '../components/ApproverTable';
 import type { ApproverItem, MasterAttribute } from '../components/ApproverTable';
+import VariantSubTable from '../components/VariantSubTable';
 import { APP_CONFIG } from '../../../constants/app/config';
 import { SIMPLIFIED_HIERARCHY } from '../../extraction/components/SimplifiedCategorySelector';
 import { getMcCodeByMajorCategory } from '../../../data/majorCategoryMcCodeMap';
@@ -149,6 +150,14 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
     const [divisionFilter, setDivisionFilter] = useState<string>('ALL');
     const [subDivisionFilter, setSubDivisionFilter] = useState<string>('ALL');
     const [dateRangeFilter, setDateRangeFilter] = useState<[Dayjs | null, Dayjs | null] | null>(null);
+
+    // Debounce search input — only update searchText (which re-triggers fetchItems) after 300 ms idle
+    const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+        searchDebounceRef.current = setTimeout(() => setSearchText(value), 300);
+    }, []);
 
     // Derived: user's assigned divisions/sub-divisions (parsed from their profile)
     const userAssignedDivisions = useMemo(() => getDivisionVariants(user?.division), [user]);
@@ -796,8 +805,9 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
                             <Input.Search
                                 placeholder="Search Article, Vendor, Design #"
                                 onSearch={val => setSearchText(val)}
-                                onChange={e => setSearchText(e.target.value)}
+                                onChange={handleSearchChange}
                                 allowClear
+                                onClear={() => setSearchText('')}
                             />
                         </Col>
                         <Col xs={24} sm={8} md={4}>
@@ -956,6 +966,18 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
                         onEdit={handleEdit}
                         attributes={attributes}
                         user={user}
+                        expandable={{
+                            expandedRowRender: (record) => (
+                                <VariantSubTable
+                                    genericId={record.id}
+                                    genericRecord={record}
+                                    onRefresh={() => fetchItems(currentPage)}
+                                    attributes={attributes}
+                                />
+                            ),
+                            expandRowByClick: false,
+                            rowExpandable: () => true,
+                        }}
                         serverPagination={{
                             total: totalCount,
                             current: currentPage,

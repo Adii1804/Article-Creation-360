@@ -306,6 +306,12 @@ model ExtractionResultFlat {
   source                      String?        @db.VarChar(20)   // 'MANUAL' | 'WATCHER'
   imageUncPath                String?        @unique @map("image_unc_path")
 
+  // Variant fields
+  isGeneric                   Boolean        @default(true) @map("is_generic")
+  genericArticleId            String?        @map("generic_article_id")
+  variantSize                 String?        @map("variant_size") @db.VarChar(50)
+  variantColor                String?        @map("variant_color") @db.VarChar(100)
+
   // SAP Sync (Placeholder)
   sapSyncStatus               SapSyncStatus  @default(NOT_SYNCED) @map("sap_sync_status")
   sapArticleId                String?        @map("sap_article_id") @db.VarChar(100)
@@ -324,6 +330,12 @@ model ExtractionResultFlat {
   @@index([approvalStatus])
   @@index([division])
   @@index([approvalStatus, division])
+  @@index([genericArticleId])
+  @@index([isGeneric, approvalStatus])
+  @@index([division, approvalStatus])
+  @@index([subDivision, approvalStatus])
+  @@index([vendorName])
+  @@index([isGeneric, approvalStatus, division])
   @@map("extraction_results_flat")
 }
 
