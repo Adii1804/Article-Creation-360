@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Card, Input, Select, Space, Table, Tag, Typography, Empty, message, Modal, Image, Descriptions, Form, Spin } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import { APP_CONFIG } from '../../../constants/app/config';
@@ -1075,7 +1075,7 @@ export default function Products() {
         <Form layout="vertical">
           <div style={{ maxHeight: 520, overflowY: 'auto', paddingRight: 8 }}>
             {EDITABLE_ATTRIBUTE_DEFINITIONS.map((item) => (
-              <React.Fragment key={item.key}>
+              <Fragment key={item.key}>
                 <Form.Item label={item.label} style={{ marginBottom: 12 }}>
                   {(() => {
                     const options = attributeOptionsByKey.get(normalizeAttrKey(item.key)) || [];
@@ -1117,7 +1117,7 @@ export default function Products() {
                     </div>
                   );
                 })()}
-              </React.Fragment>
+              </Fragment>
             ))}
           </div>
         </Form>
