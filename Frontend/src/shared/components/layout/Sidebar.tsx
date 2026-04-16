@@ -8,6 +8,8 @@ import {
   CheckSquareOutlined,
   FileOutlined,
   HistoryOutlined,
+  CloseCircleOutlined,
+  FileTextOutlined,
 } from '@ant-design/icons';
 
 const { Sider } = Layout;
@@ -58,7 +60,17 @@ export default function Sidebar({ collapsed = false, userRole }: SidebarProps) {
           icon: <HistoryOutlined />,
           label: <Link to="/approver/old-articles">Old Articles</Link>,
         },
+        {
+          key: '/approver/rejected',
+          icon: <CloseCircleOutlined />,
+          label: <Link to="/approver/rejected">Rejected Articles</Link>,
+        },
       ],
+    }] : []),
+    ...((userRole === 'ADMIN' || userRole === 'APPROVER' || userRole === 'CATEGORY_HEAD') ? [{
+      key: '/po-presentation',
+      icon: <FileTextOutlined />,
+      label: <Link to="/po-presentation">PO Presentation</Link>,
     }] : []),
     ...(userRole === 'ADMIN' ? [{
       key: '/admin',

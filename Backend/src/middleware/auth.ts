@@ -24,6 +24,7 @@ type CachedAuthUser = {
 };
 
 const authUserCache = new Map<number, { user: CachedAuthUser; expiresAt: number }>();
+const pendingAuthUserLookups = new Map<number, Promise<CachedAuthUser | null>>();
 
 function getCachedAuthUser(userId: number): CachedAuthUser | null {
   const cached = authUserCache.get(userId);
@@ -42,6 +43,41 @@ function setCachedAuthUser(user: CachedAuthUser): void {
     user,
     expiresAt: Date.now() + AUTH_USER_CACHE_TTL_MS
   });
+}
+
+async function fetchAuthUserById(userId: number): Promise<CachedAuthUser | null> {
+  const cached = getCachedAuthUser(userId);
+  if (cached) return cached;
+
+  const pendingLookup = pendingAuthUserLookups.get(userId);
+  if (pendingLookup) return pendingLookup;
+
+  const lookupPromise = withPrismaRetry(() =>
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        division: true,
+        subDivision: true,
+        isActive: true,
+        lastLogin: true,
+      },
+    })
+  ).then((user) => {
+    const typedUser = user as CachedAuthUser | null;
+    if (typedUser) {
+      setCachedAuthUser(typedUser);
+    }
+    return typedUser;
+  }).finally(() => {
+    pendingAuthUserLookups.delete(userId);
+  });
+
+  pendingAuthUserLookups.set(userId, lookupPromise);
+  return lookupPromise;
 }
 
 export function invalidateAuthUserCache(userId?: number): void {
@@ -124,30 +160,7 @@ export const authenticate = async (
     }
 
     const userId = Number(decoded.id);
-    let user = Number.isFinite(userId) ? getCachedAuthUser(userId) : null;
-
-    // Fetch user from database only when cache miss
-    if (!user) {
-      user = await withPrismaRetry(() =>
-        prisma.user.findUnique({
-          where: { id: decoded.id },
-          select: {
-            id: true,
-            email: true,
-            name: true,
-            role: true,
-            division: true,
-            subDivision: true,
-            isActive: true,
-            lastLogin: true,
-          },
-        })
-      ) as CachedAuthUser | null;
-
-      if (user) {
-        setCachedAuthUser(user);
-      }
-    }
+    const user = Number.isFinite(userId) ? await fetchAuthUserById(userId) : null;
 
     // Check if user exists
     if (!user) {
@@ -349,18 +362,8 @@ export const optionalAuth = async (
       const decoded = jwt.verify(token, JWT_SECRET) as any;
 
       // Try to fetch user
-      const user = await prisma.user.findUnique({
-        where: { id: decoded.id },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          role: true,
-          division: true,
-          subDivision: true,
-          isActive: true,
-        },
-      });
+      const userId = Number(decoded.id);
+      const user = Number.isFinite(userId) ? await fetchAuthUserById(userId) : null;
 
       if (user && user.isActive) {
         req.user = {

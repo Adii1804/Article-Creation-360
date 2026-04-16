@@ -18,6 +18,7 @@ import { DashboardPage, ProfilePage, ProductsPage } from './features/dashboard';
 import { HierarchyManagement, UsersManagement } from './features/admin';
 import Admin from './features/admin/pages/Admin'; // Admin Dashboard
 import ApproverDashboard from './features/approver/pages/ApproverDashboard'; // Approver Dashboard
+import POPresentationPage from './features/po-presentation/pages/POPresentationPage'; // PO Presentation
 
 // Shared Components
 import { ErrorBoundary } from './shared/components/ErrorBoundary';
@@ -233,6 +234,28 @@ const App: React.FC = () => {
                   <ApproverRoute>
                     <MainLayout>
                       <ApproverDashboard key="old-articles" pathType="old" />
+                    </MainLayout>
+                  </ApproverRoute>
+                }
+              />
+              <Route
+                path="/approver/rejected"
+                element={
+                  <ApproverRoute>
+                    <MainLayout>
+                      <ApproverDashboard key="rejected-articles" pathType="rejected" />
+                    </MainLayout>
+                  </ApproverRoute>
+                }
+              />
+
+              {/* PO Presentation */}
+              <Route
+                path="/po-presentation"
+                element={
+                  <ApproverRoute>
+                    <MainLayout>
+                      <POPresentationPage />
                     </MainLayout>
                   </ApproverRoute>
                 }

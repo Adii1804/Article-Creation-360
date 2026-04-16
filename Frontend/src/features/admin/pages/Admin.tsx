@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Card, Row, Col, Statistic, Button, message, Table, Empty, Spin } from 'antd';
+import { Card, Row, Col, Statistic, Button, message, Table, Empty, Spin, Popconfirm } from 'antd';
 import {
   UserOutlined,
   CloudUploadOutlined,
@@ -8,9 +8,11 @@ import {
   ReloadOutlined,
   DollarOutlined,
   PictureOutlined,
-  EyeOutlined
+  EyeOutlined,
+  FileTextOutlined,
 } from '@ant-design/icons';
 import { BackendApiService } from '../../../services/api/backendApi';
+import { APP_CONFIG } from '../../../constants/app/config';
 
 const api = new BackendApiService();
 
@@ -20,6 +22,7 @@ export default function Admin() {
   const [imageData, setImageData] = useState<any>(null);
   const [detailedExpenses, setDetailedExpenses] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [backfillLoading, setBackfillLoading] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -47,6 +50,25 @@ export default function Admin() {
       console.error('Error loading admin data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const runDescriptionBackfill = async () => {
+    setBackfillLoading(true);
+    try {
+      const token = localStorage.getItem('authToken');
+      const baseURL = APP_CONFIG.api.baseURL;
+      const res = await fetch(
+        `${baseURL}/approver/backfill-descriptions?fromDate=2026-04-10&toDate=${new Date().toISOString().slice(0, 10)}`,
+        { method: 'POST', headers: { Authorization: `Bearer ${token}` } }
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Backfill failed');
+      message.success(`Backfill complete — ${data.updated} article description(s) updated.`);
+    } catch (err: any) {
+      message.error(err?.message || 'Backfill failed');
+    } finally {
+      setBackfillLoading(false);
     }
   };
 
@@ -211,6 +233,40 @@ export default function Admin() {
             </Card>
           </Col>
         </Row>
+
+        {/* Backfill Tools */}
+        <Card
+          title={<span><FileTextOutlined style={{ marginRight: 8 }} />Data Maintenance</span>}
+          style={{ marginBottom: 24 }}
+        >
+          <Row gutter={[16, 16]} align="middle">
+            <Col flex="auto">
+              <div>
+                <strong>Backfill Article Descriptions</strong>
+                <div style={{ color: '#8c8c8c', fontSize: 13, marginTop: 2 }}>
+                  Re-compute article descriptions for all articles created from <strong>10 Apr 2026</strong> to today using the current formula (YARN‑WEAVE‑MVGR‑LYCRA‑NECK‑SLEEVE…, max 40 chars).
+                </div>
+              </div>
+            </Col>
+            <Col>
+              <Popconfirm
+                title="Run description backfill?"
+                description="This will overwrite existing article descriptions for articles from 10 Apr 2026 to today. Continue?"
+                onConfirm={runDescriptionBackfill}
+                okText="Yes, run it"
+                cancelText="Cancel"
+              >
+                <Button
+                  type="primary"
+                  icon={<FileTextOutlined />}
+                  loading={backfillLoading}
+                >
+                  Run Backfill
+                </Button>
+              </Popconfirm>
+            </Col>
+          </Row>
+        </Card>
 
         {/* Debug Info */}
         <Card style={{ marginBottom: 24, background: '#f0f2f5' }}>

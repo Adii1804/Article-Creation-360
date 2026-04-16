@@ -1,6 +1,6 @@
 import { getMcCodeByMajorCategory, getDivisionByMajorCategory, getSubDivisionByMajorCategory, getHsnCodeByMcCode } from '../utils/mcCodeMapper';
 import { prismaClient as prisma } from '../utils/prisma';
-import { calculateMrpFromRate, parseNumericValue } from '../utils/mrpCalculator';
+import { parseNumericValue } from '../utils/mrpCalculator';
 import { mvgrMappingService } from './mvgrMappingService';
 import { buildArticleDescription } from '../utils/articleDescriptionBuilder';
 import { getSegmentByCategoryAndMrp } from '../utils/segmentRangeMapper';
@@ -99,8 +99,8 @@ export class FlatteningService {
             ?? job.costPrice
         );
         const explicitMrp = parseNumericValue(resultsMap.get('mrp'));
-        const derivedMrp = calculateMrpFromRate(parsedRate);
-        const finalMrp = derivedMrp ?? explicitMrp;
+        // MRP defaults to 1 when not explicitly extracted — user sets it manually.
+        const finalMrp = explicitMrp ?? 1;
 
         const rawMajorCategory = resultsMap.get('major_category') || job.category?.code;
         const mappedMcCode = getMcCodeByMajorCategory(rawMajorCategory);

@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { prismaClient as prisma } from '../utils/prisma';
 import { getHsnCodeByMcCode, getMcCodeByMajorCategory } from '../utils/mcCodeMapper';
-import { calculateMrpFromRate, parseNumericValue } from '../utils/mrpCalculator';
+import { parseNumericValue } from '../utils/mrpCalculator';
 
 export class FlatExtractionController {
     private attributeKeyToFieldMap: Record<string, string> = {
@@ -322,12 +322,7 @@ export class FlatExtractionController {
             if (fieldName === 'mrp') {
                 data.mrp = parseNumericValue(value);
             } else if (fieldName === 'rate') {
-                const parsedRate = parseNumericValue(value);
-                data.rate = parsedRate;
-                // Only auto-calculate MRP from rate if MRP is not already set
-                if (existing.mrp === null || existing.mrp === undefined) {
-                    data.mrp = calculateMrpFromRate(parsedRate);
-                }
+                data.rate = parseNumericValue(value);
             } else if (fieldName === 'majorCategory') {
                 const majorCategoryText = toNullableString(value);
 

@@ -13,6 +13,8 @@ import {
   CheckSquareOutlined,
   FileOutlined,
   HistoryOutlined,
+  CloseCircleOutlined,
+  FileTextOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './MainLayout.css';
@@ -106,6 +108,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         children: [
           { key: '/approver', icon: <FileOutlined />, label: 'New Articles' },
           { key: '/approver/old-articles', icon: <HistoryOutlined />, label: 'Old Articles' },
+          { key: '/approver/rejected', icon: <CloseCircleOutlined />, label: 'Rejected Articles' },
         ],
       },
     ];
@@ -117,6 +120,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
     if (userData?.role === 'APPROVER' || userData?.role === 'CATEGORY_HEAD' || isAdmin) {
       items = [...items, ...approverItems];
+    }
+
+    if (userData?.role === 'APPROVER' || userData?.role === 'CATEGORY_HEAD' || isAdmin) {
+      items = [...items, { key: '/po-presentation', icon: <FileTextOutlined />, label: 'PO Presentation' }];
     }
 
     if (isAdmin) {

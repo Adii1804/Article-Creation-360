@@ -222,6 +222,28 @@ export const AttributeTable: React.FC<AttributeTableProps> = ({
       },
     ];
 
+    // Inject Markdown computed column right after MRP column (if schema has both rate and mrp)
+    const hasMrp = schema.some(s => s.key === 'mrp');
+    const hasRate = schema.some(s => s.key === 'rate');
+    const markdownColumn: ColumnsType<ExtractedRow> = (hasMrp && hasRate) ? [{
+      title: <div style={{ fontSize: 12 }}>Markdown</div>,
+      key: '__markdown__',
+      width: 110,
+      render: (_: unknown, record: ExtractedRow) => {
+        const mrp = parseFloat(String(record.attributes?.['mrp'] ?? ''));
+        const rate = parseFloat(String(record.attributes?.['rate'] ?? ''));
+        if (!isFinite(mrp) || !isFinite(rate) || mrp === 0) return <span style={{ color: '#bfbfbf' }}>—</span>;
+        const md = ((mrp - rate) / mrp * 100).toFixed(1);
+        return <span style={{ color: '#2f54eb', fontWeight: 600 }}>{md}%</span>;
+      }
+    }] : [];
+
+    // Insert markdown column right after mrp column in attributeColumns
+    const mrpIdx = attributeColumns.findIndex(c => (c as any).key === 'mrp');
+    if (mrpIdx >= 0 && markdownColumn.length > 0) {
+      attributeColumns.splice(mrpIdx + 1, 0, ...markdownColumn);
+    }
+
     // 🔗 COMBINE ALL COLUMNS: Fixed Left + Dynamic Attributes + Fixed Right
     return [...baseColumns, ...attributeColumns, ...actionsColumn];
   }, [schema, extractedRows, onAttributeChange, onAddToSchema, onDeleteRow, onImageClick, onReExtract, focusedCellKey]);

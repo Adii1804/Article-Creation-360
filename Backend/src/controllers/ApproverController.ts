@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { ApprovalStatus, SapSyncStatus } from '../generated/prisma';
 import { getHsnCodeByMcCode, getMcCodeByMajorCategory } from '../utils/mcCodeMapper';
-import { calculateMrpFromRate, parseNumericValue } from '../utils/mrpCalculator';
+import { parseNumericValue } from '../utils/mrpCalculator';
 import { getSegmentByCategoryAndMrp } from '../utils/segmentRangeMapper';
 import { syncApprovedItemsToSap } from '../services/sapSyncService';
 import { storageService } from '../services/storageService';
@@ -10,6 +10,12 @@ import { prismaClient as prisma } from '../utils/prisma';
 import { syncGenericToVariants, addColorVariants } from '../services/variantCreationService';
 
 export class ApproverController {
+    private static readonly STARTUP_BACKFILL_BATCH_SIZE = parseInt(process.env.STARTUP_BACKFILL_BATCH_SIZE || '250', 10);
+    private static readonly STARTUP_BACKFILL_DELAY_MS = parseInt(process.env.STARTUP_BACKFILL_DELAY_MS || '15000', 10);
+    private static readonly STARTUP_BACKFILLS_ENABLED = String(process.env.STARTUP_BACKFILLS_ENABLED ?? 'true').toLowerCase() !== 'false';
+    private static readonly STARTUP_BACKFILLS_IN_DEV = String(process.env.STARTUP_BACKFILLS_IN_DEV ?? 'false').toLowerCase() === 'true';
+    private static startupBackfillRunning = false;
+
     private static extractNumericWeight(value: unknown): string | null {
         if (value === null || value === undefined) return null;
         const text = String(value).trim();
@@ -151,7 +157,7 @@ export class ApproverController {
                 id: true,
                 majorCategory: true
             },
-            take: 5000
+            take: ApproverController.STARTUP_BACKFILL_BATCH_SIZE
         });
 
         if (missingRows.length === 0) return 0;
@@ -198,7 +204,7 @@ export class ApproverController {
                 id: true,
                 mcCode: true
             },
-            take: 5000
+            take: ApproverController.STARTUP_BACKFILL_BATCH_SIZE
         });
 
         if (rows.length === 0) return 0;
@@ -244,7 +250,7 @@ export class ApproverController {
                 majorCategory: true,
                 mrp: true
             },
-            take: 5000
+            take: ApproverController.STARTUP_BACKFILL_BATCH_SIZE
         });
 
         if (rows.length === 0) return 0;
@@ -321,42 +327,48 @@ export class ApproverController {
             select: {
                 id: true,
                 articleDescription: true,
+                // All fields used by buildArticleDescription
                 yarn1: true,
-                yarn2: true,
-                fabricMainMvgr: true,
                 weave: true,
+                mFab2: true,
+                fabricMainMvgr: true,
+                lycra: true,
+                neck: true,
+                sleeve: true,
+                fatherBelt: true,
+                fit: true,
+                pattern: true,
+                length: true,
+                printType: true,
+                printPlacement: true,
+                printStyle: true,
+                embroidery: true,
+                pocketType: true,
+                vendorCode: true,
+                designNumber: true,
+                size: true,
+                // Extra fields fetched but not part of description formula
+                yarn2: true,
                 composition: true,
                 finish: true,
                 gsm: true,
                 shade: true,
-                lycra: true,
-                neck: true,
                 neckDetails: true,
                 collar: true,
                 placket: true,
-                sleeve: true,
                 bottomFold: true,
                 frontOpenStyle: true,
-                pocketType: true,
-                fit: true,
-                pattern: true,
-                length: true,
                 drawcord: true,
                 button: true,
                 zipper: true,
                 zipColour: true,
-                printType: true,
-                printStyle: true,
-                printPlacement: true,
                 patches: true,
                 patchesType: true,
-                embroidery: true,
                 embroideryType: true,
                 wash: true,
-                fatherBelt: true,
                 childBelt: true
             },
-            take: 5000
+            take: ApproverController.STARTUP_BACKFILL_BATCH_SIZE
         });
 
         if (rows.length === 0) return 0;
@@ -408,6 +420,38 @@ export class ApproverController {
         return total;
     }
 
+    // Admin endpoint: backfill article descriptions for a date range.
+    static async backfillDescriptions(req: Request, res: Response) {
+        try {
+            // Default: April 10 2026 → now
+            const fromDate = req.query.fromDate
+                ? new Date(req.query.fromDate as string)
+                : new Date('2026-04-10T00:00:00.000Z');
+            const toDate = req.query.toDate
+                ? new Date(req.query.toDate as string)
+                : new Date();
+
+            if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
+                return res.status(400).json({ error: 'Invalid fromDate or toDate' });
+            }
+
+            console.log(`[Backfill] Article descriptions from ${fromDate.toISOString()} to ${toDate.toISOString()}`);
+
+            const where = {
+                createdAt: {
+                    gte: fromDate,
+                    lte: toDate,
+                }
+            };
+
+            const updated = await ApproverController.refreshArticleDescriptions(where);
+            return res.json({ success: true, updated, fromDate, toDate });
+        } catch (err: any) {
+            console.error('[Backfill] Error:', err);
+            return res.status(500).json({ error: err?.message || 'Backfill failed' });
+        }
+    }
+
     // Backfill variantColor (and colour) for existing size variants that are missing them.
     // Looks up each variant's generic article and copies its colour.
     private static async backfillVariantColors(): Promise<number> {
@@ -450,6 +494,22 @@ export class ApproverController {
 
     // Run once at server startup to backfill missing computed fields across all records.
     static runStartupBackfills(): void {
+        if (!ApproverController.STARTUP_BACKFILLS_ENABLED) {
+            console.log('[Backfill] Startup backfills disabled by STARTUP_BACKFILLS_ENABLED=false');
+            return;
+        }
+
+        if (process.env.NODE_ENV === 'development' && !ApproverController.STARTUP_BACKFILLS_IN_DEV) {
+            console.log('[Backfill] Skipping startup backfills in development. Set STARTUP_BACKFILLS_IN_DEV=true to enable.');
+            return;
+        }
+
+        if (ApproverController.startupBackfillRunning) {
+            return;
+        }
+
+        ApproverController.startupBackfillRunning = true;
+
         const run = async () => {
             try {
                 await ApproverController.backfillMissingMcCodes({});
@@ -462,10 +522,12 @@ export class ApproverController {
                 console.log('✅ Startup backfills completed');
             } catch (err: any) {
                 console.warn('⚠️ Startup backfills failed (non-critical):', err?.message);
+            } finally {
+                ApproverController.startupBackfillRunning = false;
             }
         };
-        // Delay startup backfills by 5 seconds to let the server fully initialize
-        setTimeout(() => { run(); }, 5000);
+        // Delay startup backfills so the first page load is not competing for DB sessions.
+        setTimeout(() => { void run(); }, ApproverController.STARTUP_BACKFILL_DELAY_MS);
     }
 
     // Get items for approver dashboard
@@ -477,6 +539,23 @@ export class ApproverController {
         'PIC-KIDS-LESS THAN 180',
         'PIC-MENS-LESS THAN 180',
     ];
+
+    /**
+     * Returns IDs of articles whose articleNumber OR imageName is a 10-digit numeric string
+     * (e.g. "1130153330" or "1130153330.jpg"). These are treated as OLD articles regardless
+     * of their imageUncPath, because they already have a pre-existing SAP article number.
+     */
+    private static async getNumericOldArticleIds(): Promise<string[]> {
+        // Only PENDING articles with 10-digit numeric names are routed to Old Articles.
+        // Approved articles stay out (they're done), rejected ones go to the Rejected page.
+        const rows = await prisma.$queryRaw<{ id: string }[]>`
+            SELECT id FROM extraction_results_flat
+            WHERE (article_number ~ '^[0-9]{10}$'
+               OR image_name ~ '^[0-9]{10}(\.[a-zA-Z0-9]+)?$')
+              AND approval_status = 'PENDING'
+        `;
+        return rows.map(r => r.id);
+    }
 
     static async getItems(req: Request, res: Response) {
         try {
@@ -494,36 +573,58 @@ export class ApproverController {
                 ApproverController.applyApproverScope(where, req.user);
             }
 
-            // Path-type filter: 'old' → only OLD_PATH_MARKERS, 'new' → exclude them
+            // Path-type filter: 'old' → only OLD_PATH_MARKERS or 10-digit numeric article/image names,
+            // 'new' → exclude both, 'rejected' → only REJECTED status.
             // Using `contains` (no backslashes) avoids PostgreSQL LIKE escape-character issues
             // that occur when using `startsWith` with UNC paths (\\server\folder...).
             console.log(`[ApproverController] pathType=${pathType ?? 'none'}`);
-            if (pathType === 'old') {
-                where.AND = where.AND || [];
-                where.AND.push({
-                    OR: ApproverController.OLD_PATH_MARKERS.map(marker => ({
+            if (pathType === 'old' || pathType === 'new') {
+                // Fetch IDs of articles with 10-digit numeric article/image names — these are always "old".
+                const numericOldIds = await ApproverController.getNumericOldArticleIds();
+
+                if (pathType === 'old') {
+                    where.AND = where.AND || [];
+                    // OLD = path matches OLD_PATH_MARKERS OR has a 10-digit numeric article/image name.
+                    const oldConditions: any[] = ApproverController.OLD_PATH_MARKERS.map(marker => ({
                         imageUncPath: { contains: marker, mode: 'insensitive' }
-                    }))
-                });
-            } else if (pathType === 'new') {
+                    }));
+                    if (numericOldIds.length > 0) {
+                        oldConditions.push({ id: { in: numericOldIds } });
+                    }
+                    where.AND.push({ OR: oldConditions });
+                } else {
+                    where.AND = where.AND || [];
+                    // NEW = not an OLD_PATH_MARKER path AND not a numeric old article.
+                    // Also include records where imageUncPath is NULL (manual uploads) unless they are numeric old.
+                    const notOldPath = {
+                        OR: [
+                            { imageUncPath: null },
+                            {
+                                AND: ApproverController.OLD_PATH_MARKERS.map(marker => ({
+                                    NOT: { imageUncPath: { contains: marker, mode: 'insensitive' } }
+                                }))
+                            }
+                        ]
+                    };
+                    where.AND.push(notOldPath);
+                    if (numericOldIds.length > 0) {
+                        where.AND.push({ NOT: { id: { in: numericOldIds } } });
+                    }
+                    // Exclude REJECTED articles from the new articles view — they have their own dedicated page.
+                    where.AND.push({
+                        NOT: { approvalStatus: ApprovalStatus.REJECTED }
+                    });
+                }
+            } else if (pathType === 'rejected') {
+                // Dedicated rejected articles view — always filter to REJECTED only.
                 where.AND = where.AND || [];
-                // Exclude any record whose path contains one of the old markers.
-                // Also include records where imageUncPath is NULL (manual uploads).
-                where.AND.push({
-                    OR: [
-                        { imageUncPath: null },
-                        {
-                            AND: ApproverController.OLD_PATH_MARKERS.map(marker => ({
-                                NOT: { imageUncPath: { contains: marker, mode: 'insensitive' } }
-                            }))
-                        }
-                    ]
-                });
+                where.AND.push({ approvalStatus: ApprovalStatus.REJECTED });
             }
 
             // Status Filtering (Multi-select support)
             // Supports virtual FAILED status mapped from sapSyncStatus=FAILED.
-            if (status && status !== 'ALL') {
+            // Skip status filter when pathType forces a specific status (rejected view).
+            if (status && status !== 'ALL' && pathType !== 'rejected') {
                 const requestedStatuses = (status as string)
                     .split(',')
                     .map(s => String(s || '').trim().toUpperCase())
@@ -700,27 +801,36 @@ export class ApproverController {
                 ApproverController.applyApproverScope(where, req.user);
             }
 
-            // Path-type filter (same as getItems)
+            // Path-type filter (same logic as getItems — old includes numeric old article IDs too)
             console.log(`[ApproverController] exportAll pathType=${pathType ?? 'none'}`);
-            if (pathType === 'old') {
-                where.AND = where.AND || [];
-                where.AND.push({
-                    OR: ApproverController.OLD_PATH_MARKERS.map(marker => ({
+            if (pathType === 'old' || pathType === 'new') {
+                const numericOldIds = await ApproverController.getNumericOldArticleIds();
+
+                if (pathType === 'old') {
+                    where.AND = where.AND || [];
+                    const oldConditions: any[] = ApproverController.OLD_PATH_MARKERS.map(marker => ({
                         imageUncPath: { contains: marker, mode: 'insensitive' }
-                    }))
-                });
-            } else if (pathType === 'new') {
-                where.AND = where.AND || [];
-                where.AND.push({
-                    OR: [
-                        { imageUncPath: null },
-                        {
-                            AND: ApproverController.OLD_PATH_MARKERS.map(marker => ({
-                                NOT: { imageUncPath: { contains: marker, mode: 'insensitive' } }
-                            }))
-                        }
-                    ]
-                });
+                    }));
+                    if (numericOldIds.length > 0) {
+                        oldConditions.push({ id: { in: numericOldIds } });
+                    }
+                    where.AND.push({ OR: oldConditions });
+                } else {
+                    where.AND = where.AND || [];
+                    where.AND.push({
+                        OR: [
+                            { imageUncPath: null },
+                            {
+                                AND: ApproverController.OLD_PATH_MARKERS.map(marker => ({
+                                    NOT: { imageUncPath: { contains: marker, mode: 'insensitive' } }
+                                }))
+                            }
+                        ]
+                    });
+                    if (numericOldIds.length > 0) {
+                        where.AND.push({ NOT: { id: { in: numericOldIds } } });
+                    }
+                }
             }
 
             // Status filter
@@ -969,19 +1079,7 @@ export class ApproverController {
             const existingRate = toComparableNumber(existingItem.rate);
             const rateActuallyChanged = data.rate !== undefined && incomingRate !== existingRate;
 
-            // Only derive MRP from rate when rate actually changes AND user did not manually provide MRP.
-            // This prevents failed saves when the frontend sends full rows with unchanged values.
-            if (rateActuallyChanged && data.mrp === undefined) {
-                data.mrp = calculateMrpFromRate(incomingRate);
-            } else if (
-                data.rate === undefined &&
-                data.mrp === undefined &&
-                (existingItem.mrp === null || existingItem.mrp === undefined) &&
-                existingRate !== null
-            ) {
-                // Backfill missing MRP from existing rate when any update is made.
-                data.mrp = calculateMrpFromRate(existingRate);
-            }
+            // MRP is manually set by the user — no auto-derivation from rate.
 
             const finalMajorCategory = (data.majorCategory !== undefined ? data.majorCategory : existingItem.majorCategory) as string | null;
             const finalMrp = data.mrp !== undefined ? data.mrp : existingItem.mrp;

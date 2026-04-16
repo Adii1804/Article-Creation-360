@@ -509,6 +509,19 @@ export const ApproverTable: React.FC<ApproverTableProps> = ({
         { title: 'Shade', dataIndex: 'shade', key: 'shade', width: 120, editable: true },
         { title: 'Rate', dataIndex: 'rate', key: 'rate', width: 100, editable: true },
         { title: 'MRP', dataIndex: 'mrp', key: 'mrp', width: 100, editable: true },
+        {
+            title: 'Markdown',
+            key: 'markdown',
+            width: 110,
+            editable: false,
+            render: (_: unknown, record: any) => {
+                const mrp = parseFloat(String(record.mrp ?? ''));
+                const rate = parseFloat(String(record.rate ?? ''));
+                if (!isFinite(mrp) || !isFinite(rate) || mrp === 0) return <span style={{ color: '#bfbfbf' }}>—</span>;
+                const md = ((mrp - rate) / mrp * 100).toFixed(1);
+                return <span style={{ color: '#2f54eb', fontWeight: 600 }}>{md}%</span>;
+            }
+        },
         { title: 'Size', dataIndex: 'size', key: 'size', width: 120, editable: true },
         { title: 'Pattern', dataIndex: 'pattern', key: 'pattern', width: 120, editable: true },
         { title: 'Fit', dataIndex: 'fit', key: 'fit', width: 120, editable: true },

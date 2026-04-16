@@ -1075,34 +1075,49 @@ export default function Products() {
         <Form layout="vertical">
           <div style={{ maxHeight: 520, overflowY: 'auto', paddingRight: 8 }}>
             {EDITABLE_ATTRIBUTE_DEFINITIONS.map((item) => (
-              <Form.Item key={item.key} label={item.label} style={{ marginBottom: 12 }}>
-                {(() => {
-                  const options = attributeOptionsByKey.get(normalizeAttrKey(item.key)) || [];
-                  if (options.length > 0) {
+              <React.Fragment key={item.key}>
+                <Form.Item label={item.label} style={{ marginBottom: 12 }}>
+                  {(() => {
+                    const options = attributeOptionsByKey.get(normalizeAttrKey(item.key)) || [];
+                    if (options.length > 0) {
+                      return (
+                        <Select
+                          showSearch
+                          allowClear
+                          options={options}
+                          optionFilterProp="label"
+                          value={editValues[item.key] || undefined}
+                          onChange={(value) => setEditValues((prev) => ({ ...prev, [item.key]: value ?? '' }))}
+                          disabled={savingEdits}
+                          placeholder={`Select ${item.label}`}
+                        />
+                      );
+                    }
+
                     return (
-                      <Select
-                        showSearch
-                        allowClear
-                        options={options}
-                        optionFilterProp="label"
-                        value={editValues[item.key] || undefined}
-                        onChange={(value) => setEditValues((prev) => ({ ...prev, [item.key]: value ?? '' }))}
+                      <Input
+                        value={editValues[item.key] ?? ''}
+                        onChange={(e) => setEditValues((prev) => ({ ...prev, [item.key]: e.target.value }))}
                         disabled={savingEdits}
-                        placeholder={`Select ${item.label}`}
+                        placeholder={`Enter ${item.label}`}
                       />
                     );
-                  }
-
+                  })()}
+                </Form.Item>
+                {item.key === 'mrp' && (() => {
+                  const mrp = parseFloat(String(editValues['mrp'] ?? ''));
+                  const rate = parseFloat(String(editValues['rate'] ?? ''));
+                  if (!isFinite(mrp) || !isFinite(rate) || mrp === 0) return null;
+                  const md = ((mrp - rate) / mrp * 100).toFixed(1);
                   return (
-                    <Input
-                      value={editValues[item.key] ?? ''}
-                      onChange={(e) => setEditValues((prev) => ({ ...prev, [item.key]: e.target.value }))}
-                      disabled={savingEdits}
-                      placeholder={`Enter ${item.label}`}
-                    />
+                    <div style={{ background: '#f0f5ff', border: '1px solid #adc6ff', borderRadius: 6, padding: '6px 12px', marginBottom: 12, fontSize: 13 }}>
+                      <span style={{ color: '#595959' }}>Markdown: </span>
+                      <span style={{ fontWeight: 700, color: '#2f54eb' }}>{md}%</span>
+                      <span style={{ color: '#8c8c8c', marginLeft: 8, fontSize: 12 }}>(MRP − Rate) ÷ MRP × 100</span>
+                    </div>
                   );
                 })()}
-              </Form.Item>
+              </React.Fragment>
             ))}
           </div>
         </Form>

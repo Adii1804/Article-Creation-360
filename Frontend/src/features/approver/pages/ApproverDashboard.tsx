@@ -35,12 +35,11 @@ const parseNumericValue = (value: unknown): number | null => {
     return Number.isNaN(parsed) ? null : parsed;
 };
 
-const calculateMrpFromRate = (rateOrCost: unknown): number | null => {
-    const rate = parseNumericValue(rateOrCost);
-    if (rate === null) return null;
-
-    const priceWithMargin = rate + (rate * 0.47);
-    return Math.ceil(priceWithMargin / 25) * 25;
+const calcMarkdown = (mrp: unknown, rate: unknown): string | null => {
+    const m = parseNumericValue(mrp);
+    const r = parseNumericValue(rate);
+    if (m === null || r === null || m === 0) return null;
+    return ((m - r) / m * 100).toFixed(1) + '%';
 };
 
 const normalizeText = (value?: string | null): string =>
@@ -132,7 +131,7 @@ export const SIMPLE_APPROVER_EXPORT_HEADERS = [
 const PAGE_SIZE = 50;
 
 interface ApproverDashboardProps {
-    pathType?: 'old' | 'new';
+    pathType?: 'old' | 'new' | 'rejected';
 }
 
 export default function ApproverDashboard({ pathType }: ApproverDashboardProps = {}) {
@@ -191,8 +190,8 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
     const [form] = Form.useForm();
     // Track selected division in modal to cascade subDivision dropdown
     const [modalDivision, setModalDivision] = useState<string | undefined>(undefined);
-    // Track if user manually edited MRP so Rate onChange doesn't overwrite it
-    const [mrpManuallyEdited, setMrpManuallyEdited] = useState(false);
+    // Live markdown preview in edit modal (MRP - Rate) / MRP * 100%
+    const [modalMarkdown, setModalMarkdown] = useState<string | null>(null);
 
     const fetchAttributes = useCallback(async () => {
         try {
@@ -378,7 +377,7 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
             }
 
             const exportData = buildApproverExportData(allRows);
-            const fileName = pathType === 'old' ? 'Old Articles' : pathType === 'new' ? 'New Articles' : 'Articles';
+            const fileName = pathType === 'old' ? 'Old Articles' : pathType === 'new' ? 'New Articles' : pathType === 'rejected' ? 'Rejected Articles' : 'Articles';
             const divLabel = divisionFilter !== 'ALL' ? ` - ${divisionFilter}` : '';
             await exportToExcel(exportData, [...SIMPLE_APPROVER_EXPORT_HEADERS], [], `${fileName}${divLabel}`);
             message.success(`Exported ${allRows.length} records`);
@@ -545,7 +544,7 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
             year: item.year,
             articleType: item.articleType,
         });
-        setMrpManuallyEdited(false);
+        setModalMarkdown(calcMarkdown(item.mrp, item.rate));
         setIsEditModalOpen(true);
     };
 
@@ -558,14 +557,6 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
             // Populate when category changes OR mcCode is empty.
             if (values.majorCategory && (values.majorCategory !== editingItem?.majorCategory || !values.mcCode)) {
                 values.mcCode = inferMcCode(values.majorCategory) || values.mcCode;
-            }
-
-            // Auto-derive MRP from rate only if MRP was not manually set
-            const originalMrp = editingItem?.mrp != null ? String(editingItem.mrp) : '';
-            const currentMrp = values.mrp != null ? String(values.mrp) : '';
-            const mrpUnchanged = currentMrp === originalMrp || currentMrp === '';
-            if (values.rate !== undefined && mrpUnchanged) {
-                values.mrp = calculateMrpFromRate(values.rate);
             }
 
             const response = await fetch(`${APP_CONFIG.api.baseURL}/approver/items/${editingItem?.id}`, {
@@ -681,10 +672,8 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
                 <Form.Item name="rate" label="Rate">
                     <Input
                         onChange={(e) => {
-                            if (!mrpManuallyEdited) {
-                                const mrp = calculateMrpFromRate(e.target.value);
-                                form.setFieldsValue({ mrp });
-                            }
+                            const md = calcMarkdown(form.getFieldValue('mrp'), e.target.value);
+                            setModalMarkdown(md);
                         }}
                     />
                 </Form.Item>
@@ -693,10 +682,22 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
                 <Form.Item name="mrp" label="MRP">
                     <Input
                         placeholder="e.g. 599"
-                        onChange={() => setMrpManuallyEdited(true)}
+                        onChange={(e) => {
+                            const md = calcMarkdown(e.target.value, form.getFieldValue('rate'));
+                            setModalMarkdown(md);
+                        }}
                     />
                 </Form.Item>
             </Col>
+            {modalMarkdown !== null && (
+                <Col span={24}>
+                    <div style={{ background: '#f0f5ff', border: '1px solid #adc6ff', borderRadius: 6, padding: '6px 12px', marginBottom: 8, fontSize: 13 }}>
+                        <span style={{ color: '#595959' }}>Markdown: </span>
+                        <span style={{ fontWeight: 700, color: '#2f54eb' }}>{modalMarkdown}</span>
+                        <span style={{ color: '#8c8c8c', marginLeft: 8, fontSize: 12 }}>(MRP − Rate) ÷ MRP × 100</span>
+                    </div>
+                </Col>
+            )}
             <Col span={12}>
                 <Form.Item name="size" label="Size">
                     <Input />
@@ -816,7 +817,7 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
                                 background: 'linear-gradient(180deg, #6366f1, #a78bfa)',
                             }} />
                             <span style={{ fontWeight: 700, fontSize: 15, color: '#1e1b4b' }}>
-                                {pathType === 'old' ? 'Old Articles' : pathType === 'new' ? 'New Articles' : 'Approver Dashboard'}
+                                {pathType === 'old' ? 'Old Articles' : pathType === 'new' ? 'New Articles' : pathType === 'rejected' ? 'Rejected Articles' : 'Approver Dashboard'}
                             </span>
                             {user?.division && (
                                 <span style={{
@@ -844,15 +845,16 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
                                     onClear={() => setSearchText('')}
                                 />
                             </Col>
+                            {pathType !== 'rejected' && (
                             <Col xs={12} sm={6} md={4}>
                                 <Select style={{ width: '100%' }} value={statusFilter} onChange={(val) => setStatusFilter(val)}>
                                     <Option value="ALL">All Statuses</Option>
                                     <Option value="PENDING">Pending</Option>
                                     <Option value="APPROVED">Approved</Option>
-                                    <Option value="REJECTED">Rejected</Option>
                                     <Option value="FAILED">Failed</Option>
                                 </Select>
                             </Col>
+                            )}
                             {(showDivisionFilter || user?.role === 'ADMIN') && (
                                 <Col xs={12} sm={6} md={4}>
                                     <Select style={{ width: '100%' }} placeholder="Division" value={divisionFilter}
