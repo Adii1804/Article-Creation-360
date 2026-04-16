@@ -12,9 +12,9 @@ import { randomUUID } from 'crypto';
 import { prismaClient as prisma } from '../utils/prisma';
 
 interface SizeMappingRow {
-  'SUB-DIV': string;
-  MAJ_CAT: string;
-  SZ: string;
+  'SUB-DIV': unknown;
+  MAJ_CAT: unknown;
+  SZ: unknown;
 }
 
 let cachedSizeMappings: SizeMappingRow[] | null = null;
@@ -43,10 +43,12 @@ function loadSizeMappings(): SizeMappingRow[] {
 function getSizesForMajCat(majCat: string): string[] {
   const mappings = loadSizeMappings();
   const upper = majCat.trim().toUpperCase();
-  return mappings
-    .filter(r => (r.MAJ_CAT || '').trim().toUpperCase() === upper)
-    .map(r => (r.SZ || '').trim())
-    .filter(Boolean);
+  return Array.from(new Set(
+    mappings
+      .filter(r => String(r.MAJ_CAT ?? '').trim().toUpperCase() === upper)
+      .map(r => String(r.SZ ?? '').trim())
+      .filter(Boolean)
+  ));
 }
 
 // Fields that should NOT be synced from generic to variants (variant-specific)

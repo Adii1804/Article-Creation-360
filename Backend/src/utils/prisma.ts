@@ -10,6 +10,8 @@ import { PrismaClient } from '../generated/prisma';
 // Global singleton (survives hot-reload in development)
 type GlobalWithPrisma = typeof globalThis & {
   __prismaClient?: PrismaClient;
+  __prismaBeforeExitHookRegistered?: boolean;
+  __appIsShuttingDown?: boolean;
 };
 
 const globalForPrisma = globalThis as GlobalWithPrisma;
@@ -17,7 +19,7 @@ const globalForPrisma = globalThis as GlobalWithPrisma;
 function buildRuntimeDatabaseUrl(): string | undefined {
   const rawUrl = process.env.DATABASE_URL;
   if (!rawUrl) return undefined;
-  const runtimeConnectionLimit = process.env.PRISMA_CONNECTION_LIMIT || '1';
+  const runtimeConnectionLimit = process.env.PRISMA_CONNECTION_LIMIT || '3';
   const runtimePoolTimeout = process.env.PRISMA_POOL_TIMEOUT || '30';
   const runtimeConnectTimeout = process.env.PRISMA_CONNECT_TIMEOUT || '20';
 
@@ -46,7 +48,7 @@ function buildRuntimeDatabaseUrl(): string | undefined {
   }
 }
 
-const TRANSIENT_PRISMA_CODES = new Set(['P1001', 'P1002', 'P1017']);
+const TRANSIENT_PRISMA_CODES = new Set(['P1001', 'P1002', 'P1017', 'P2024']);
 
 function isTransientPrismaError(error: any): boolean {
   const code = error?.code as string | undefined;
@@ -60,8 +62,18 @@ function isTransientPrismaError(error: any): boolean {
     message.includes('connection reset') ||
     message.includes('forcibly closed by the remote host') ||
     message.includes('server has closed the connection') ||
-    message.includes('can\'t reach database server')
+    message.includes('can\'t reach database server') ||
+    message.includes('timed out fetching a new connection from the connection pool')
   );
+}
+
+function shouldResetPrismaClient(error: any): boolean {
+  const code = error?.code as string | undefined;
+  if (code === 'P2024') {
+    return false;
+  }
+
+  return isTransientPrismaError(error);
 }
 
 function wait(ms: number): Promise<void> {
@@ -77,6 +89,18 @@ export async function resetPrismaClient(): Promise<void> {
     }
     globalForPrisma.__prismaClient = undefined;
   }
+}
+
+export async function disconnectPrismaClient(): Promise<void> {
+  await resetPrismaClient();
+}
+
+export function setAppIsShuttingDown(value: boolean): void {
+  globalForPrisma.__appIsShuttingDown = value;
+}
+
+export function isAppShuttingDown(): boolean {
+  return globalForPrisma.__appIsShuttingDown === true;
 }
 
 export async function withPrismaRetry<T>(
@@ -99,8 +123,10 @@ export async function withPrismaRetry<T>(
         throw error;
       }
 
-      await resetPrismaClient();
-      getPrismaClient();
+      if (shouldResetPrismaClient(error)) {
+        await resetPrismaClient();
+        getPrismaClient();
+      }
       await wait(baseDelayMs * Math.pow(2, attempt));
     }
   }
@@ -120,13 +146,23 @@ export function getPrismaClient(): PrismaClient {
     });
 
     // Handle graceful shutdown
-    process.on('beforeExit', async () => {
-      await globalForPrisma.__prismaClient?.$disconnect();
-    });
+    if (!globalForPrisma.__prismaBeforeExitHookRegistered) {
+      process.on('beforeExit', async () => {
+        await globalForPrisma.__prismaClient?.$disconnect();
+      });
+      globalForPrisma.__prismaBeforeExitHookRegistered = true;
+    }
   }
 
   return globalForPrisma.__prismaClient;
 }
 
-// Export singleton instance
-export const prismaClient = getPrismaClient();
+// Export a proxy so retries/resets always resolve to the current Prisma client instance.
+export const prismaClient = new Proxy({} as PrismaClient, {
+  get(_target, prop, receiver) {
+    return Reflect.get(getPrismaClient() as any, prop, receiver);
+  },
+  set(_target, prop, value, receiver) {
+    return Reflect.set(getPrismaClient() as any, prop, value, receiver);
+  }
+}) as PrismaClient;

@@ -6,7 +6,7 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { prismaClient as prisma } from '../utils/prisma';
+import { prismaClient as prisma, withPrismaRetry } from '../utils/prisma';
 import { invalidateAuthUserCache } from '../middleware/auth';
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 const ENABLE_SINGLE_SESSION = String(process.env.ENABLE_SINGLE_SESSION || 'false').toLowerCase() === 'true';
@@ -128,9 +128,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     // Find user
-    const user = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
-    });
+    const user = await withPrismaRetry(() =>
+      prisma.user.findUnique({
+        where: { email: email.toLowerCase() },
+      })
+    );
 
     if (!user) {
       res.status(401).json({ success: false, error: 'Invalid email or password' });
@@ -153,10 +155,12 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     const sessionIssuedAt = Date.now();
 
     // Update last login
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { lastLogin: new Date(sessionIssuedAt) },
-    });
+    await withPrismaRetry(() =>
+      prisma.user.update({
+        where: { id: user.id },
+        data: { lastLogin: new Date(sessionIssuedAt) },
+      })
+    );
 
     invalidateAuthUserCache(user.id);
 

@@ -31,12 +31,14 @@ import { checkApiConfiguration } from './services/baseApi';
 import { cacheService } from './services/cacheService';
 import { mvgrMappingService } from './services/mvgrMappingService';
 import { ApproverController } from './controllers/ApproverController';
+import { disconnectPrismaClient, isAppShuttingDown, setAppIsShuttingDown } from './utils/prisma';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '5000', 10);
 const isProduction = process.env.NODE_ENV === 'production';
 const RATE_LIMIT_WINDOW_MS = parseInt(process.env.RATE_LIMIT_WINDOW_MS || `${15 * 60 * 1000}`, 10);
 const RATE_LIMIT_MAX = parseInt(process.env.RATE_LIMIT_MAX || '500', 10);
+let shutdownInProgress = false;
 
 // Trust proxy - required for Cloudflare, load balancers, and rate limiting
 app.set('trust proxy', 1);
@@ -121,6 +123,20 @@ app.use('/api/', (req, res, next) => {
 // Body parsing middleware
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+app.use((req, res, next) => {
+  if (!isAppShuttingDown()) {
+    next();
+    return;
+  }
+
+  res.setHeader('Connection', 'close');
+  res.status(503).json({
+    success: false,
+    error: 'Server is shutting down. Please retry in a few seconds.',
+    code: 'SERVER_SHUTTING_DOWN'
+  });
+});
 
 // Serve uploaded images as static files
 app.use('/uploads', express.static('uploads'));
@@ -255,23 +271,47 @@ app.use(errorHandler);
       console.log(`\n⚠️  Note: Legacy routes /api/extract/*, /api/vlm/* require authentication`);
     });
 
-    // Graceful shutdown
-    process.on('SIGTERM', async () => {
-      console.log('🔄 SIGTERM received, shutting down gracefully...');
-      await flushAuditLogsOnShutdown();
-      server.close(() => {
+    const shutdown = async (signal: 'SIGTERM' | 'SIGINT') => {
+      if (shutdownInProgress) {
+        return;
+      }
+
+      shutdownInProgress = true;
+      setAppIsShuttingDown(true);
+      console.log(signal === 'SIGINT'
+        ? '\n🔄 SIGINT received, shutting down gracefully...'
+        : '🔄 SIGTERM received, shutting down gracefully...');
+
+      try {
+        await flushAuditLogsOnShutdown();
+      } catch (error) {
+        console.error('❌ Failed to flush audit logs during shutdown:', error);
+      }
+
+      server.close(async () => {
+        try {
+          await cacheService.disconnect();
+        } catch (error) {
+          console.error('❌ Failed to disconnect Redis during shutdown:', error);
+        }
+
+        try {
+          await disconnectPrismaClient();
+        } catch (error) {
+          console.error('❌ Failed to disconnect Prisma during shutdown:', error);
+        }
+
         console.log('✅ Server closed');
         process.exit(0);
       });
+    };
+
+    process.once('SIGTERM', () => {
+      void shutdown('SIGTERM');
     });
 
-    process.on('SIGINT', async () => {
-      console.log('\n🔄 SIGINT received, shutting down gracefully...');
-      await flushAuditLogsOnShutdown();
-      server.close(() => {
-        console.log('✅ Server closed');
-        process.exit(0);
-      });
+    process.once('SIGINT', () => {
+      void shutdown('SIGINT');
     });
   } catch (error) {
     console.error('❌ Error during server initialization:', error);

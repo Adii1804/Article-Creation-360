@@ -14,7 +14,13 @@ export class ApproverController {
     private static readonly STARTUP_BACKFILL_DELAY_MS = parseInt(process.env.STARTUP_BACKFILL_DELAY_MS || '15000', 10);
     private static readonly STARTUP_BACKFILLS_ENABLED = String(process.env.STARTUP_BACKFILLS_ENABLED ?? 'true').toLowerCase() !== 'false';
     private static readonly STARTUP_BACKFILLS_IN_DEV = String(process.env.STARTUP_BACKFILLS_IN_DEV ?? 'false').toLowerCase() === 'true';
+    private static readonly APPROVER_ATTRIBUTES_CACHE_TTL_MS = parseInt(process.env.APPROVER_ATTRIBUTES_CACHE_TTL_MS || '300000', 10);
+    private static readonly NUMERIC_OLD_ARTICLES_CACHE_TTL_MS = parseInt(process.env.NUMERIC_OLD_ARTICLES_CACHE_TTL_MS || '30000', 10);
     private static startupBackfillRunning = false;
+    private static attributesCache: { data: any[]; expiresAt: number } | null = null;
+    private static pendingAttributesLoad: Promise<any[]> | null = null;
+    private static numericOldArticleIdsCache: { ids: string[]; expiresAt: number } | null = null;
+    private static pendingNumericOldArticleIdsLoad: Promise<string[]> | null = null;
 
     private static extractNumericWeight(value: unknown): string | null {
         if (value === null || value === undefined) return null;
@@ -546,15 +552,35 @@ export class ApproverController {
      * of their imageUncPath, because they already have a pre-existing SAP article number.
      */
     private static async getNumericOldArticleIds(): Promise<string[]> {
+        const cached = ApproverController.numericOldArticleIdsCache;
+        if (cached && cached.expiresAt > Date.now()) {
+            return cached.ids;
+        }
+
+        if (ApproverController.pendingNumericOldArticleIdsLoad) {
+            return ApproverController.pendingNumericOldArticleIdsLoad;
+        }
+
         // Only PENDING articles with 10-digit numeric names are routed to Old Articles.
         // Approved articles stay out (they're done), rejected ones go to the Rejected page.
-        const rows = await prisma.$queryRaw<{ id: string }[]>`
+        const loadPromise = prisma.$queryRaw<{ id: string }[]>`
             SELECT id FROM extraction_results_flat
             WHERE (article_number ~ '^[0-9]{10}$'
                OR image_name ~ '^[0-9]{10}(\.[a-zA-Z0-9]+)?$')
               AND approval_status = 'PENDING'
-        `;
-        return rows.map(r => r.id);
+        `.then((rows) => {
+            const ids = rows.map(r => r.id);
+            ApproverController.numericOldArticleIdsCache = {
+                ids,
+                expiresAt: Date.now() + ApproverController.NUMERIC_OLD_ARTICLES_CACHE_TTL_MS
+            };
+            return ids;
+        }).finally(() => {
+            ApproverController.pendingNumericOldArticleIdsLoad = null;
+        });
+
+        ApproverController.pendingNumericOldArticleIdsLoad = loadPromise;
+        return loadPromise;
     }
 
     static async getItems(req: Request, res: Response) {
@@ -903,16 +929,34 @@ export class ApproverController {
     // Get master attributes for dropdowns
     static async getAttributes(req: Request, res: Response) {
         try {
-            const attributes = await prisma.masterAttribute.findMany({
-                where: { isActive: true },
-                include: {
-                    allowedValues: {
+            const cached = ApproverController.attributesCache;
+            let attributes = cached && cached.expiresAt > Date.now() ? cached.data : null;
+
+            if (!attributes) {
+                if (!ApproverController.pendingAttributesLoad) {
+                    ApproverController.pendingAttributesLoad = prisma.masterAttribute.findMany({
                         where: { isActive: true },
+                        include: {
+                            allowedValues: {
+                                where: { isActive: true },
+                                orderBy: { displayOrder: 'asc' }
+                            }
+                        },
                         orderBy: { displayOrder: 'asc' }
-                    }
-                },
-                orderBy: { displayOrder: 'asc' }
-            });
+                    }).then((rows) => {
+                        ApproverController.attributesCache = {
+                            data: rows,
+                            expiresAt: Date.now() + ApproverController.APPROVER_ATTRIBUTES_CACHE_TTL_MS
+                        };
+                        return rows;
+                    }).finally(() => {
+                        ApproverController.pendingAttributesLoad = null;
+                    });
+                }
+
+                attributes = await ApproverController.pendingAttributesLoad;
+            }
+
             return res.json(attributes);
         } catch (error) {
             console.error('Error fetching attributes:', error);
