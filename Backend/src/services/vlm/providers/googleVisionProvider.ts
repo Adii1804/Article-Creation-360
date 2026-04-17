@@ -1031,8 +1031,11 @@ COLOUR EXTRACTION (READ CAREFULLY):
     if (usage) {
       // Use actual token counts from API response
       inputTokens = usage.promptTokenCount || 0;
-      outputTokens = usage.candidatesTokenCount || 0;
-      tokensUsed = inputTokens + outputTokens;
+      // candidatesTokenCount may be 0 for thinking models (2.5-pro); fall back to totalTokenCount - promptTokenCount
+      outputTokens = usage.candidatesTokenCount
+        || ((usage as any).thoughtsTokenCount ? ((usage as any).thoughtsTokenCount + (usage.candidatesTokenCount || 0)) : 0)
+        || Math.max(0, (usage.totalTokenCount || 0) - inputTokens);
+      tokensUsed = usage.totalTokenCount || (inputTokens + outputTokens);
       console.log(`📊 [Gemini] Token Usage: Input=${inputTokens}, Output=${outputTokens}, Total=${tokensUsed}`);
     } else {
       // Fallback to estimation if usage data not available

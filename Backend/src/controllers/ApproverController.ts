@@ -1228,16 +1228,6 @@ export class ApproverController {
                 return res.status(404).json({ error: 'Item not found' });
             }
 
-            const finalVendorCode = data.vendorCode !== undefined
-                ? data.vendorCode
-                : (existingItem as any).vendorCode;
-
-            if (!hasVendorCode(finalVendorCode) || !isValidVendorCode(finalVendorCode)) {
-                return res.status(400).json({
-                    error: 'Vendor Code is required and must be exactly 6 digits.'
-                });
-            }
-
             // Prevent updating approved items
             if (existingItem.approvalStatus === 'APPROVED') {
                 return res.status(403).json({ error: 'Cannot update an approved item. It is locked for SAP sync.' });
