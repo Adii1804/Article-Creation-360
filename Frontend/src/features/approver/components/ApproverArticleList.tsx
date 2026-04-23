@@ -67,6 +67,8 @@ const ATTRIBUTE_GROUPS: { group: string; color: string; fields: { field: string;
             { field: 'zipColour',      schemaKey: 'zip_colour' },
             { field: 'patchesType',    schemaKey: 'patches_type' },
             { field: 'patches',        schemaKey: 'patches' },
+            { field: 'htrfType',       schemaKey: 'htrf_type' },
+            { field: 'htrfStyle',      schemaKey: 'htrf_style' },
         ],
     },
     {
@@ -78,7 +80,17 @@ const ATTRIBUTE_GROUPS: { group: string; color: string; fields: { field: string;
             { field: 'printPlacement', schemaKey: 'print_placement' },
             { field: 'embroidery',     schemaKey: 'embroidery' },
             { field: 'embroideryType', schemaKey: 'embroidery_type' },
+            { field: 'embPlacement',   schemaKey: 'emb_placement' },
             { field: 'wash',           schemaKey: 'wash' },
+        ],
+    },
+    {
+        group: 'BUSINESS',
+        color: '#f9f0ff',
+        fields: [
+            { field: 'ageGroup',            schemaKey: 'age_group' },
+            { field: 'articleFashionType',  schemaKey: 'article_fashion_type' },
+            { field: 'segment',             schemaKey: 'segment' },
         ],
     },
 ];

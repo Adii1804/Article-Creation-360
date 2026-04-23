@@ -90,10 +90,16 @@ export const FIELD_TO_360_COL: Record<string, string> = {
     printPlacement:              'print_placement',
     embroidery:                  'embroidery',
     embroideryType:              'embroidery_type',
+    embPlacement:                'emb_placement',
+    htrfType:                    'htrf_type',
+    htrfStyle:                   'htrf_style',
     wash:                        'wash',
 
     // Business / derived
     segment:                     'segment',
+    ageGroup:                    'age_group',
+    articleFashionType:          'article_fashion_type',
+    articleDimension:            'article_dimension',
     season:                      'season',
     hsnTaxCode:                  'hsn_tax_code',
     articleDescription:          'article_description',
