@@ -6,6 +6,7 @@ import { getHsnCodeByMcCode, getMcCodeByMajorCategory } from '../utils/mcCodeMap
 import { parseNumericValue } from '../utils/mrpCalculator';
 import { getSegmentByCategoryAndMrp } from '../utils/segmentRangeMapper';
 import { syncApprovedItemsToSap } from '../services/sapSyncService';
+import { syncArticlesToSapViaRfc } from '../services/zmmArtCreationService';
 import { storageService } from '../services/storageService';
 import { ARTICLE_DESCRIPTION_SOURCE_FIELDS, buildArticleDescription } from '../utils/articleDescriptionBuilder';
 import { prismaClient as prisma } from '../utils/prisma';
@@ -1386,7 +1387,7 @@ export class ApproverController {
                 }
             });
 
-            const syncResults = await syncApprovedItemsToSap(approvedItems);
+            const syncResults = await syncArticlesToSapViaRfc(approvedItems);
             const approvedItemById = new Map(approvedItems.map((item) => [item.id, item]));
 
             // Phase 1: Persist SAP article creation/sync outcome first.
