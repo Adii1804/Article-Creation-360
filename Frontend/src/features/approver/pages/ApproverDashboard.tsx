@@ -9,7 +9,7 @@ import VariantSubTable from '../components/VariantSubTable';
 import { APP_CONFIG } from '../../../constants/app/config';
 import { SIMPLIFIED_HIERARCHY } from '../../extraction/components/SimplifiedCategorySelector';
 import { getMcCodeByMajorCategory, MAJOR_CATEGORY_ALLOWED_VALUES } from '../../../data/majorCategoryMcCodeMap';
-import { getMajCatAllowedValues, getMajCatMandatoryKeys, SCHEMA_KEY_TO_EXCEL_ATTR } from '../../../data/majCatAttributeMap';
+import { getMajCatAllowedValues, getMajCatMandatoryKeys, SCHEMA_KEY_TO_EXCEL_ATTR, normalizeMajorCategory } from '../../../data/majCatAttributeMap';
 import { formatDivisionLabel } from '../../../shared/utils/ui/formatters';
 import type { Dayjs } from 'dayjs';
 import { exportToExcel } from '../../../shared/utils/export/extractionExport';
@@ -460,8 +460,11 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
         drawcord: 'drawcord', dcShape: 'dc_shape', button: 'button',
         btnColour: 'btn_colour', zipper: 'zipper', zipColour: 'zip_colour',
         patchesType: 'patches_type', patches: 'patches',
+        htrfType: 'htrf_type', htrfStyle: 'htrf_style',
         printType: 'print_type', printStyle: 'print_style', printPlacement: 'print_placement',
-        embroidery: 'embroidery', embroideryType: 'embroidery_type', wash: 'wash',
+        embroidery: 'embroidery', embroideryType: 'embroidery_type',
+        embPlacement: 'emb_placement', wash: 'wash',
+        ageGroup: 'age_group', articleFashionType: 'article_fashion_type',
     };
 
     // Reactively check if ALL selected pending items have mandatory fields filled.
@@ -471,9 +474,10 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
         const errors: { articleId: string; missing: string[] }[] = [];
         for (const item of pendingItems) {
             const missing: string[] = [];
-            if (!item.bodyArticleDescription) missing.push('BODY ARTICLE DESC');
-            if (item.majorCategory) {
-                const mandatoryKeys = getMajCatMandatoryKeys(item.majorCategory);
+            // Normalize majorCategory to short code before mandatory lookup
+            const effMajCat = normalizeMajorCategory(item.majorCategory || '', item.division);
+            if (effMajCat) {
+                const mandatoryKeys = getMajCatMandatoryKeys(effMajCat);
                 for (const [field, schemaKey] of Object.entries(FIELD_TO_SCHEMA_KEY)) {
                     if (mandatoryKeys.has(schemaKey) && !(item as any)[field]) {
                         missing.push(SCHEMA_KEY_TO_EXCEL_ATTR[schemaKey] || schemaKey);
@@ -500,18 +504,11 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
         for (const item of pendingItems) {
             const missing: string[] = [];
 
-            // bodyArticleDescription is mandatory for ALL major categories
-            if (!item.bodyArticleDescription) {
-                missing.push('BODY ARTICLE DESC');
-            }
-
-            if (!item.referenceArticleDescription) {
-                missing.push('REFERENCE ARTICLE DESC');
-            }
-
             // Check Excel-driven mandatory fields for this major category
-            if (item.majorCategory) {
-                const mandatoryKeys = getMajCatMandatoryKeys(item.majorCategory);
+            // (normalize majorCategory to short code first for correct lookup)
+            const effMajCat = normalizeMajorCategory(item.majorCategory || '', item.division);
+            if (effMajCat) {
+                const mandatoryKeys = getMajCatMandatoryKeys(effMajCat);
                 for (const [field, schemaKey] of Object.entries(FIELD_TO_SCHEMA_KEY)) {
                     if (mandatoryKeys.has(schemaKey) && !(item as any)[field]) {
                         const excelName = SCHEMA_KEY_TO_EXCEL_ATTR[schemaKey] || schemaKey;

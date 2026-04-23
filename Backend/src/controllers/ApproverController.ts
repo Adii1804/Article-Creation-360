@@ -1094,16 +1094,32 @@ export class ApproverController {
                 'articleNumber', 'division', 'subDivision', 'majorCategory', 'vendorName', 'designNumber',
                 'pptNumber', 'rate', 'size', 'yarn1', 'yarn2', 'fabricMainMvgr', 'weave',
                 'composition', 'finish', 'gsm', 'shade', 'weight', 'lycra', 'neck', 'neckDetails',
-                'collar', 'placket', 'sleeve', 'bottomFold', 'frontOpenStyle', 'pocketType',
-                'fit', 'pattern', 'length', 'colour', 'drawcord', 'button', 'zipper',
-                'zipColour', 'printType', 'printStyle', 'printPlacement', 'patches',
-                'patchesType', 'embroidery', 'embroideryType', 'wash', 'fatherBelt', 'childBelt',
+                // Body fields (full set)
+                'collar', 'collarStyle', 'placket', 'sleeve', 'sleeveFold', 'bottomFold',
+                'frontOpenStyle', 'noOfPocket', 'pocketType', 'extraPocket',
+                'fit', 'pattern', 'length', 'colour', 'fatherBelt', 'childBelt',
+                // Fabric detail fields
+                'fCount', 'fConstruction', 'fOunce', 'fWidth',
+                // VA Accessories
+                'drawcord', 'dcShape', 'button', 'btnColour', 'zipper', 'zipColour',
+                'patches', 'patchesType',
+                // VA Accessories — new
+                'htrfType', 'htrfStyle',
+                // VA Processing
+                'printType', 'printStyle', 'printPlacement',
+                'embroidery', 'embroideryType', 'embPlacement', 'wash',
+                // Business
+                'ageGroup', 'articleFashionType', 'articleDimension',
                 'referenceArticleNumber', 'referenceArticleDescription',
                 'impAtrbt2',
-                // New business fields
+                // Business / SAP fields
                 'macroMvgr', 'mainMvgr', 'mFab2',
                 'vendorCode', 'mrp', 'mcCode', 'segment', 'season',
                 'hsnTaxCode', 'articleDescription', 'fashionGrid', 'year', 'articleType',
+                // Card footer fields (fabric/body article builder)
+                'fabricArticleNumber', 'fabricArticleDescription',
+                'bodyArticle', 'bodyArticleDescription',
+                'attrArticleNums',
                 // Variant-specific fields
                 'variantColor', 'variantSize'
             ];
