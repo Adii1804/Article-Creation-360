@@ -15,6 +15,7 @@ import * as XLSX from 'xlsx';
 import { randomUUID } from 'crypto';
 import { prismaClient as prisma } from '../utils/prisma';
 import { storageService } from './storageService';
+import { upsert360ArticleFlatRow } from '../utils/mirror360Flat';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -293,29 +294,27 @@ export async function duplicateForKidsDivision(flatId: string): Promise<void> {
           ...rest
         } = original;
 
-        await prisma.extractionResultFlat.create({
-          data: {
-            ...rest,
-            // New unique identifiers
-            id: randomUUID(),
-            jobId: newJob.id,
-            // Updated image
-            imageUrl: newImageUrl,
-            // Kids mapping overrides — always explicit so copies are never wrong
-            division: 'KIDS',
-            majorCategory: sibling.majCat,
-            subDivision: sibling.subDiv,
-            // Approval/SAP reset to defaults
-            approvalStatus: 'PENDING',
-            approvedBy: null,
-            approvedAt: null,
-            sapSyncStatus: 'NOT_SYNCED',
-            sapArticleId: null,
-            sapSyncMessage: null,
-            // imageUncPath must be null (unique constraint — each record must be unique)
-            imageUncPath: null,
-          },
-        });
+        const kidsId = randomUUID();
+        const kidsData = {
+          ...rest,
+          id: kidsId,
+          jobId: newJob.id,
+          imageUrl: newImageUrl,
+          division: 'KIDS',
+          majorCategory: sibling.majCat,
+          subDivision: sibling.subDiv,
+          approvalStatus: 'PENDING' as const,
+          approvedBy: null,
+          approvedAt: null,
+          sapSyncStatus: 'NOT_SYNCED' as const,
+          sapArticleId: null,
+          sapSyncMessage: null,
+          imageUncPath: null,
+        };
+        await prisma.extractionResultFlat.create({ data: kidsData });
+
+        // Mirror to 360article (fire-and-forget)
+        void upsert360ArticleFlatRow(kidsId, kidsData as Record<string, unknown>);
 
         console.log(
           `[KidsDuplication] Created duplicate for MAJ_CAT='${sibling.majCat}' SUB-DIV='${sibling.subDiv}' (jobId=${newJob.id})`

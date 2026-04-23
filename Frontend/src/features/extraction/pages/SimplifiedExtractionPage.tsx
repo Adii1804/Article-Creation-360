@@ -28,6 +28,7 @@ import ExportManager from "../components/ExportManager";
 import { useImageExtraction } from "../../../shared/hooks/extraction/useImageExtraction";
 import type { SchemaItem } from "../../../shared/types/extraction/ExtractionTypes";
 import { MAJOR_CATEGORY_ALLOWED_VALUES } from "../../../data/majorCategoryMcCodeMap";
+import { getMajCatAllowedValues, getMajCatMandatoryKeys } from "../../../data/majCatAttributeMap";
 
 import "./ExtractionPage.css";
 import "../../../styles/App.css";
@@ -35,7 +36,7 @@ import "../../../styles/App.css";
 const { Content } = Layout;
 const { Title, Text } = Typography;
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
 const KEY_ALIASES: Record<string, string> = {
   neck_details: 'neck_detail',
@@ -88,6 +89,7 @@ const normalizeAllowedValues = (attributeKey: string, allowedValues: any[] = [])
 
 
 const BASE_SIMPLIFIED_SCHEMA: SchemaItem[] = [
+  // ── Header / identity fields ──────────────────────────────────────────────
   {
     key: 'division',
     label: 'Division',
@@ -98,65 +100,66 @@ const BASE_SIMPLIFIED_SCHEMA: SchemaItem[] = [
       { shortForm: 'LADIES', fullForm: 'LADIES' }
     ]
   },
-  { key: 'sub_division', label: 'Sub-Division', type: 'text' },
-  { key: 'major_category', label: 'Major Category', type: 'select', allowedValues: MAJOR_CATEGORY_ALLOWED_VALUES },
-  { key: 'reference_article_number', label: 'Reference Article Number', type: 'text' },
-  { key: 'reference_article_description', label: 'Reference Article Description', type: 'text' },
-  { key: 'vendor_name', label: 'Vendor Name', type: 'text' },
-  { key: 'design_number', label: 'Design Number', type: 'text' },
-  { key: 'ppt_number', label: 'PPT Number', type: 'text' },
-  { key: 'macro_mvgr', label: 'Macro MVGR', type: 'select' },
-  { key: 'main_mvgr', label: 'Main MVGR', type: 'select' },
-  { key: 'yarn_01', label: 'Yarn 1', type: 'select' },
-  { key: 'fabric_main_mvgr', label: 'Fabric Main MVGR', type: 'select' },
-  { key: 'weave', label: 'Weave', type: 'select' },
-  { key: 'm_fab2', label: 'M FAB 2', type: 'select' },
-  { key: 'composition', label: 'Composition', type: 'select' },
-  { key: 'finish', label: 'Finish', type: 'select' },
-  { key: 'gsm', label: 'GSM', type: 'select' },
-  { key: 'weight', label: 'G-Weight', type: 'text' },
-  { key: 'lycra_non_lycra', label: 'Lycra/Non Lycra', type: 'select' },
-  { key: 'shade', label: 'Shade', type: 'select' },
-  { key: 'rate', label: 'Rate/Price', type: 'text' },
-  { key: 'mrp', label: 'MRP', type: 'text' },
-  { key: 'size', label: 'Size', type: 'text' },
-  { key: 'pattern', label: 'Pattern', type: 'select' },
-  { key: 'fit', label: 'Fit', type: 'select' },
-  { key: 'wash', label: 'Wash', type: 'select' },
-  { key: 'neck', label: 'Neck', type: 'select' },
-  { key: 'neck_details', label: 'Neck Details', type: 'select' },
-  { key: 'collar', label: 'Collar', type: 'select' },
-  { key: 'placket', label: 'Placket', type: 'select' },
-  { key: 'sleeve', label: 'Sleeve', type: 'select' },
-  { key: 'bottom_fold', label: 'Bottom Fold', type: 'select' },
-  { key: 'front_open_style', label: 'Front Open Style', type: 'select' },
-  { key: 'pocket_type', label: 'Pocket Type', type: 'select' },
-  { key: 'length', label: 'Length', type: 'select' },
-  { key: 'drawcord', label: 'Drawcord', type: 'select' },
-  { key: 'button', label: 'Button', type: 'select' },
-  { key: 'zipper', label: 'Zipper', type: 'select' },
-  { key: 'zip_colour', label: 'Zip Colour', type: 'select' },
-  { key: 'print_type', label: 'Print Type', type: 'select' },
-  { key: 'print_style', label: 'Print Style', type: 'select' },
-  { key: 'print_placement', label: 'Print Placement', type: 'select' },
-  { key: 'patches', label: 'Patches', type: 'select' },
-  { key: 'patches_type', label: 'Patches Type', type: 'select' },
-  { key: 'embroidery', label: 'Embroidery', type: 'select' },
-  { key: 'embroidery_type', label: 'Embroidery Type', type: 'select' },
-  { key: 'father_belt', label: 'Father Belt', type: 'select' },
-  { key: 'child_belt', label: 'Child Belt', type: 'select' },
+  { key: 'sub_division',                  label: 'Sub-Division',                  type: 'text' },
+  { key: 'major_category',                label: 'Major Category',                type: 'select', allowedValues: MAJOR_CATEGORY_ALLOWED_VALUES },
+  { key: 'design_number',                 label: 'Design Number',                 type: 'text' },
+  { key: 'vendor_name',                   label: 'Vendor Name',                   type: 'text' },
+  { key: 'reference_article_number',      label: 'Reference Article Number',      type: 'text' },
+  { key: 'reference_article_description', label: 'Reference Article Description', type: 'text', required: true },
+  { key: 'rate',                          label: 'Rate/Price',                    type: 'text' },
+  { key: 'mrp',                           label: 'MRP',                           type: 'text' },
+  { key: 'imp_atrbt_2',                   label: 'IMP_ATRBT-2',                   type: 'text' },
 
-  // Business fields
-  { key: 'vendor_code', label: 'Vendor Code', type: 'text' },
-  { key: 'mrp', label: 'MRP', type: 'text' },
-  { key: 'mc_code', label: 'MC Code', type: 'text' },
-  { key: 'segment', label: 'Segment', type: 'text' },
-  { key: 'season', label: 'Season', type: 'text' },
-  { key: 'hsn_tax_code', label: 'HSN Tax Code', type: 'text' },
-  { key: 'article_description', label: 'Article Description', type: 'text' },
-  { key: 'fashion_grid', label: 'Fashion Grid', type: 'text' },
-  { key: 'year', label: 'Year', type: 'text' },
-  { key: 'article_type', label: 'Article Type', type: 'text' }
+  // ── FAB ──────────────────────────────────────────────────────────────────
+  { key: 'macro_mvgr',       label: 'Macro MVGR',        type: 'select' },
+  { key: 'yarn_01',          label: 'Yarn 1',             type: 'select' },
+  { key: 'main_mvgr',        label: 'Main MVGR',          type: 'select' },
+  { key: 'fabric_main_mvgr', label: 'Fabric Main MVGR',   type: 'select' },
+  { key: 'weave',            label: 'Weave',              type: 'select' },
+  { key: 'm_fab2',           label: 'M FAB 2',            type: 'select' },
+  { key: 'composition',      label: 'Composition',        type: 'select' },
+  { key: 'f_count',          label: 'F Count',            type: 'select' },
+  { key: 'f_construction',   label: 'F Construction',     type: 'select' },
+  { key: 'lycra_non_lycra',  label: 'Lycra/Non Lycra',    type: 'select' },
+  { key: 'finish',           label: 'Finish',             type: 'select' },
+  { key: 'gsm',              label: 'GSM',                type: 'select' },
+  { key: 'f_ounce',          label: 'F Ounce',            type: 'select' },
+  { key: 'f_width',          label: 'F Width',            type: 'select' },
+
+  // ── BODY ─────────────────────────────────────────────────────────────────
+  { key: 'collar',        label: 'Collar',        type: 'select' },
+  { key: 'collar_style',  label: 'Collar Style',  type: 'select' },
+  { key: 'neck_details',  label: 'Neck Details',  type: 'select' },
+  { key: 'neck',          label: 'Neck',          type: 'select' },
+  { key: 'placket',       label: 'Placket',       type: 'select' },
+  { key: 'father_belt',   label: 'Father Belt',   type: 'select' },
+  { key: 'sleeve',        label: 'Sleeve',        type: 'select' },
+  { key: 'sleeve_fold',   label: 'Sleeve Fold',   type: 'select' },
+  { key: 'bottom_fold',   label: 'Bottom Fold',   type: 'select' },
+  { key: 'no_of_pocket',  label: 'No. of Pocket', type: 'select' },
+  { key: 'pocket_type',   label: 'Pocket Type',   type: 'select' },
+  { key: 'extra_pocket',  label: 'Extra Pocket',  type: 'select' },
+  { key: 'fit',           label: 'Fit',           type: 'select' },
+  { key: 'body_style',    label: 'Body Style',    type: 'select' },
+  { key: 'length',        label: 'Length',        type: 'select' },
+
+  // ── VA ACC. ──────────────────────────────────────────────────────────────
+  { key: 'drawcord',     label: 'Drawcord',     type: 'select' },
+  { key: 'dc_shape',     label: 'DC Shape',     type: 'select' },
+  { key: 'button',       label: 'Button',       type: 'select' },
+  { key: 'btn_colour',   label: 'Btn Colour',   type: 'select' },
+  { key: 'zipper',       label: 'Zipper',       type: 'select' },
+  { key: 'zip_colour',   label: 'Zip Colour',   type: 'select' },
+  { key: 'patches_type', label: 'Patches Type', type: 'select' },
+  { key: 'patches',      label: 'Patches',      type: 'select' },
+
+  // ── VA PRCS ──────────────────────────────────────────────────────────────
+  { key: 'print_type',       label: 'Print Type',       type: 'select' },
+  { key: 'print_style',      label: 'Print Style',      type: 'select' },
+  { key: 'print_placement',  label: 'Print Placement',  type: 'select' },
+  { key: 'embroidery',       label: 'Embroidery',       type: 'select' },
+  { key: 'embroidery_type',  label: 'Embroidery Type',  type: 'select' },
+  { key: 'wash',             label: 'Wash',             type: 'select' },
 ];
 
 const parseSubDivisions = (rawSubDivision: unknown): string[] => {
@@ -220,7 +223,9 @@ const SimplifiedExtractionPage = () => {
         if (parsed?.selectedCategory) {
           setSelectedCategory(parsed.selectedCategory);
         }
-        if (parsed?.currentStep) {
+        // Never restore 'extraction' step — the rows-loaded effect handles that.
+        // Restoring it when rows are empty causes a permanently blank page.
+        if (parsed?.currentStep && parsed.currentStep !== 'extraction') {
           setCurrentStep(parsed.currentStep);
         }
       } catch {
@@ -353,8 +358,23 @@ const SimplifiedExtractionPage = () => {
   }, []);
 
   useEffect(() => {
-    setSimplifiedSchema(baseSchema);
-  }, [baseSchema]);
+    const majorCat = selectedCategory?.majorCategory;
+    if (!majorCat) {
+      setSimplifiedSchema(baseSchema);
+      return;
+    }
+    const mandatoryKeys = getMajCatMandatoryKeys(majorCat);
+    const filtered = baseSchema.map((item) => {
+      const majCatValues = getMajCatAllowedValues(majorCat, item.key);
+      const isRequired = mandatoryKeys.has(item.key);
+      return {
+        ...item,
+        ...(majCatValues ? { allowedValues: majCatValues } : {}),
+        required: isRequired
+      };
+    });
+    setSimplifiedSchema(filtered);
+  }, [baseSchema, selectedCategory]);
 
   // When a user adds a custom value not in the master list, update the local schema immediately
   const handleAddToSchema = useCallback((attributeKey: string, value: string) => {
@@ -372,6 +392,19 @@ const SimplifiedExtractionPage = () => {
       };
     }));
   }, []);
+
+  // When rate changes, auto-compute MRP = rate * 1.47 rounded up to next multiple of 25.
+  // MRP field remains editable — user can override at any time.
+  const handleAttributeChange = useCallback((rowId: string, attributeKey: string, value: string | number | null) => {
+    updateRowAttribute(rowId, attributeKey, value);
+    if (attributeKey === 'rate') {
+      const rate = parseFloat(String(value ?? ''));
+      if (!isNaN(rate) && rate > 0) {
+        const mrp = Math.ceil((rate * 1.47) / 25) * 25;
+        updateRowAttribute(rowId, 'mrp', mrp);
+      }
+    }
+  }, [updateRowAttribute]);
 
   // Handle image upload - move to extraction step
   const handleImagesUpload = useCallback(async (fileList: File[]) => {
@@ -393,6 +426,70 @@ const SimplifiedExtractionPage = () => {
       );
     }
   }, [selectedCategory, extractAllPending, simplifiedSchema]);
+
+  const handleExportClick = useCallback(() => {
+    const mandatoryItems = simplifiedSchema.filter((item) => item.required);
+    if (mandatoryItems.length === 0) {
+      setExportModalVisible(true);
+      return;
+    }
+
+    type MissingInfo = { rowName: string; missingLabels: string[] };
+    const missing: MissingInfo[] = [];
+
+    for (const row of extractedRows) {
+      const missingLabels: string[] = [];
+      for (const item of mandatoryItems) {
+        const attr = row.attributes?.[item.key];
+        const val = attr?.schemaValue ?? attr?.rawValue;
+        if (val === null || val === undefined || String(val).trim() === '') {
+          missingLabels.push(item.label);
+        }
+      }
+      if (missingLabels.length > 0) {
+        missing.push({ rowName: row.originalFileName || row.id, missingLabels });
+      }
+    }
+
+    if (missing.length === 0) {
+      setExportModalVisible(true);
+      return;
+    }
+
+    Modal.error({
+      title: 'Mandatory Fields Missing',
+      width: 560,
+      content: (
+        <div style={{ maxHeight: 360, overflowY: 'auto' }}>
+          <p style={{ marginBottom: 12, color: '#595959' }}>
+            The following rows are missing mandatory fields required for article creation. Please fill them before exporting.
+          </p>
+          {missing.map(({ rowName, missingLabels }) => (
+            <div key={rowName} style={{ marginBottom: 10 }}>
+              <strong style={{ fontSize: 12 }}>{rowName}</strong>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+                {missingLabels.map((label) => (
+                  <span
+                    key={label}
+                    style={{
+                      background: '#fff1f0',
+                      border: '1px solid #ffa39e',
+                      borderRadius: 3,
+                      padding: '1px 6px',
+                      fontSize: 11,
+                      color: '#cf1322'
+                    }}
+                  >
+                    {label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ),
+    });
+  }, [simplifiedSchema, extractedRows]);
 
   const handleStartOver = () => {
     const isRestrictedCreator = creatorScope.isSingleScopedCreator;
@@ -659,7 +756,7 @@ const SimplifiedExtractionPage = () => {
                         icon={<DownloadOutlined />}
                         type="primary"
                         disabled={stats?.done === 0}
-                        onClick={() => setExportModalVisible(true)}
+                        onClick={handleExportClick}
                       >
                         Export Results
                       </Button>
@@ -699,7 +796,7 @@ const SimplifiedExtractionPage = () => {
                     schema={simplifiedSchema}
                     selectedRowKeys={[]}
                     onSelectionChange={() => { }}
-                    onAttributeChange={updateRowAttribute}
+                    onAttributeChange={handleAttributeChange}
                     onDeleteRow={removeRow}
                     onImageClick={handleImageClick}
                     onReExtract={() => { }}

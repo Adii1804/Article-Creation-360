@@ -10,6 +10,7 @@ datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
+  schemas   = ["public", "360article"]
 }
 
 /// Department: Top level of hierarchy (MENS, LADIES, KIDS)
@@ -27,6 +28,7 @@ model Department {
   @@index([code])
   @@index([isActive])
   @@map("departments")
+  @@schema("public")
 }
 
 /// Sub-Department: Second level (TOPWEAR, BOTTOMWEAR, INNERWEAR)
@@ -46,6 +48,7 @@ model SubDepartment {
   @@unique([departmentId, code])
   @@index([departmentId, isActive])
   @@map("sub_departments")
+  @@schema("public")
 }
 
 /// Category: Third level (T_SHIRT, JEANS, DRESS)
@@ -71,6 +74,7 @@ model Category {
   @@index([subDepartmentId, isActive])
   @@index([code])
   @@map("categories")
+  @@schema("public")
 }
 
 /// Master Attributes: All possible attributes (COLOR, SIZE, FABRIC, etc.)
@@ -104,6 +108,7 @@ model MasterAttribute {
   @@index([isActive])
   @@index([aiExtractable])
   @@map("master_attributes")
+  @@schema("public")
 }
 
 /// Attribute Allowed Values: Dropdown options for each attribute
@@ -123,6 +128,7 @@ model AttributeAllowedValue {
   @@unique([attributeId, shortForm])
   @@index([attributeId, isActive])
   @@map("attribute_allowed_values")
+  @@schema("public")
 }
 
 /// Category Attributes: Which attributes are enabled for each category (1/0 matrix)
@@ -142,6 +148,7 @@ model CategoryAttribute {
   @@unique([categoryId, attributeId])
   @@index([categoryId, isEnabled])
   @@map("category_attributes")
+  @@schema("public")
 }
 
 /// Extraction Job: Each image extraction session
@@ -180,6 +187,7 @@ model ExtractionJob {
   @@index([status])
   @@index([createdAt])
   @@map("extraction_jobs")
+  @@schema("public")
 }
 
 /// Extraction Result: Individual attribute extraction results
@@ -206,6 +214,7 @@ model ExtractionResult {
   @@index([attributeId])
   @@index([confidence])
   @@map("extraction_results")
+  @@schema("public")
 }
 
 /// Extraction Result Flat: Denormalized table for fast querying and Excel export
@@ -344,6 +353,7 @@ model ExtractionResultFlat {
   // Apply with: npx prisma db push  (or prisma migrate dev)
   @@index([imageUncPath(ops: raw("gin_trgm_ops"))], type: Gin, name: "extraction_results_flat_image_unc_path_gin_trgm")
   @@map("extraction_results_flat")
+  @@schema("public")
 }
 
 /// MVGR Lookup: Reference table for Macro MVGR, Main MVGR, and M_FAB2 codes
@@ -357,6 +367,7 @@ model MvgrLookup {
   @@unique([type, code])
   @@index([type, code])
   @@map("mvgr_lookup")
+  @@schema("public")
 }
 
 /// User: Admin and regular users
@@ -381,6 +392,7 @@ model User {
   @@index([email])
   @@index([role])
   @@map("users")
+  @@schema("public")
 }
 
 /// Audit Log: Comprehensive audit trail for all API calls
@@ -407,6 +419,7 @@ model AuditLog {
   @@index([timestamp])
   @@index([statusCode])
   @@map("audit_logs")
+  @@schema("public")
 }
 
 /// API Key: For programmatic access and integrations
@@ -427,6 +440,7 @@ model ApiKey {
   @@index([key])
   @@index([isActive])
   @@map("api_keys")
+  @@schema("public")
 }
 
 /// Change History: Track all changes for audit trail
@@ -444,6 +458,7 @@ model ChangeHistory {
   @@index([changedBy])
   @@index([changedAt])
   @@map("change_history")
+  @@schema("public")
 }
 
 /// CostSummary: Aggregated cost statistics
@@ -463,6 +478,7 @@ model CostSummary {
 
   @@index([userId])
   @@map("cost_summary")
+  @@schema("public")
 }
 
 enum AttributeType {
@@ -473,6 +489,7 @@ enum AttributeType {
   DATE
 
   @@map("attribute_type")
+  @@schema("public")
 }
 
 enum ExtractionStatus {
@@ -482,6 +499,7 @@ enum ExtractionStatus {
   FAILED
 
   @@map("extraction_status")
+  @@schema("public")
 }
 
 enum ChangeAction {
@@ -490,6 +508,7 @@ enum ChangeAction {
   DELETE
 
   @@map("change_action")
+  @@schema("public")
 }
 
 enum UserRole {
@@ -501,6 +520,7 @@ enum UserRole {
   CATEGORY_HEAD
 
   @@map("user_role")
+  @@schema("public")
 }
 
 enum GarmentType {
@@ -509,6 +529,7 @@ enum GarmentType {
   ALL_IN_ONE
 
   @@map("garment_type")
+  @@schema("public")
 }
 
 enum ApprovalStatus {
@@ -517,6 +538,7 @@ enum ApprovalStatus {
   REJECTED
 
   @@map("approval_status")
+  @@schema("public")
 }
 
 enum SapSyncStatus {
@@ -526,4 +548,277 @@ enum SapSyncStatus {
   FAILED
 
   @@map("sap_sync_status")
+  @@schema("public")
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 360article schema — new article creation & attribute data store
+// ═══════════════════════════════════════════════════════════════════════
+
+/// Article360: Master record for every article created through the 360 workflow
+model Article360 {
+  id                          String   @id @default(uuid())
+  jobId                       String?  @unique @map("job_id")     // links back to public.extraction_jobs
+  flatId                      String?  @unique @map("flat_id")    // links back to public.extraction_results_flat
+
+  // Identity / Header
+  division                    String?  @db.VarChar(100)
+  subDivision                 String?  @map("sub_division") @db.VarChar(100)
+  majorCategory               String?  @map("major_category") @db.VarChar(200)
+  designNumber                String?  @map("design_number") @db.VarChar(100)
+  vendorName                  String?  @map("vendor_name") @db.VarChar(200)
+  vendorCode                  String?  @map("vendor_code") @db.VarChar(100)
+  referenceArticleNumber      String?  @map("reference_article_number") @db.VarChar(100)
+  referenceArticleDescription String?  @map("reference_article_description")
+  articleNumber               String?  @map("article_number") @db.VarChar(100)
+  sapArticleId                String?  @map("sap_article_id") @db.VarChar(100)
+  imageName                   String?  @map("image_name") @db.VarChar(255)
+  imageUrl                    String?  @map("image_url")
+
+  // Status
+  approvalStatus              String   @default("PENDING") @map("approval_status") @db.VarChar(20)
+  sapSyncStatus               String   @default("NOT_SYNCED") @map("sap_sync_status") @db.VarChar(20)
+
+  // Audit
+  userId                      Int?     @map("user_id")
+  userName                    String?  @map("user_name") @db.VarChar(200)
+  userEmail                   String?  @map("user_email") @db.VarChar(255)
+  createdAt                   DateTime @default(now()) @map("created_at")
+  updatedAt                   DateTime @updatedAt @map("updated_at")
+
+  // Relations to attribute group tables
+  fab       ArticleFab?
+  body      ArticleBody?
+  vaAcc     ArticleVaAcc?
+  vaPrcs    ArticleVaPrcs?
+  bom       ArticleBom?
+
+  @@index([jobId])
+  @@index([flatId])
+  @@index([majorCategory])
+  @@index([division])
+  @@index([approvalStatus])
+  @@index([designNumber])
+  @@index([vendorName])
+  @@index([createdAt])
+  @@map("article_360")
+  @@schema("360article")
+}
+
+/// ArticleFab: FAB group attributes for an Article360
+model ArticleFab {
+  id            String     @id @default(uuid())
+  articleId     String     @unique @map("article_id")
+  macroMvgr     String?    @map("macro_mvgr") @db.VarChar(100)
+  yarn1         String?    @map("yarn_1") @db.VarChar(100)
+  mainMvgr      String?    @map("main_mvgr") @db.VarChar(100)
+  fabricMainMvgr String?   @map("fabric_main_mvgr") @db.VarChar(100)
+  weave         String?    @db.VarChar(100)
+  mFab2         String?    @map("m_fab2") @db.VarChar(100)
+  composition   String?    @db.VarChar(200)
+  fCount        String?    @map("f_count") @db.VarChar(100)
+  fConstruction String?    @map("f_construction") @db.VarChar(100)
+  lycra         String?    @db.VarChar(50)
+  finish        String?    @db.VarChar(100)
+  gsm           String?    @db.VarChar(50)
+  fOunce        String?    @map("f_ounce") @db.VarChar(100)
+  fWidth        String?    @map("f_width") @db.VarChar(100)
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+  article       Article360 @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@map("article_fab")
+  @@schema("360article")
+}
+
+/// ArticleBody: BODY group attributes for an Article360
+model ArticleBody {
+  id           String     @id @default(uuid())
+  articleId    String     @unique @map("article_id")
+  collar       String?    @db.VarChar(100)
+  collarStyle  String?    @map("collar_style") @db.VarChar(100)
+  neck         String?    @db.VarChar(100)
+  neckDetails  String?    @map("neck_details") @db.VarChar(200)
+  placket      String?    @db.VarChar(100)
+  fatherBelt   String?    @map("father_belt") @db.VarChar(100)
+  sleeve       String?    @db.VarChar(100)
+  sleeveFold   String?    @map("sleeve_fold") @db.VarChar(100)
+  bottomFold   String?    @map("bottom_fold") @db.VarChar(100)
+  noOfPocket   String?    @map("no_of_pocket") @db.VarChar(50)
+  pocketType   String?    @map("pocket_type") @db.VarChar(100)
+  extraPocket  String?    @map("extra_pocket") @db.VarChar(100)
+  fit          String?    @db.VarChar(100)
+  bodyStyle    String?    @map("body_style") @db.VarChar(100)
+  length       String?    @db.VarChar(100)
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+  article      Article360 @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@map("article_body")
+  @@schema("360article")
+}
+
+/// ArticleVaAcc: VA ACC group attributes for an Article360
+model ArticleVaAcc {
+  id          String     @id @default(uuid())
+  articleId   String     @unique @map("article_id")
+  drawcord    String?    @db.VarChar(100)
+  dcShape     String?    @map("dc_shape") @db.VarChar(100)
+  button      String?    @db.VarChar(100)
+  btnColour   String?    @map("btn_colour") @db.VarChar(100)
+  zipper      String?    @db.VarChar(100)
+  zipColour   String?    @map("zip_colour") @db.VarChar(100)
+  patches     String?    @db.VarChar(100)
+  patchesType String?    @map("patches_type") @db.VarChar(100)
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  article     Article360 @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@map("article_va_acc")
+  @@schema("360article")
+}
+
+/// ArticleVaPrcs: VA PRCS group attributes for an Article360
+model ArticleVaPrcs {
+  id             String     @id @default(uuid())
+  articleId      String     @unique @map("article_id")
+  printType      String?    @map("print_type") @db.VarChar(100)
+  printStyle     String?    @map("print_style") @db.VarChar(100)
+  printPlacement String?    @map("print_placement") @db.VarChar(100)
+  embroidery     String?    @db.VarChar(100)
+  embroideryType String?    @map("embroidery_type") @db.VarChar(100)
+  wash           String?    @db.VarChar(100)
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+  article        Article360 @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@map("article_va_prcs")
+  @@schema("360article")
+}
+
+/// ArticleBom: BOM (Bill of Materials) data for an Article360
+model ArticleBom {
+  id         String     @id @default(uuid())
+  articleId  String     @unique @map("article_id")
+  rate       Decimal?   @db.Decimal(10, 2)
+  mrp        Decimal?   @db.Decimal(10, 2)
+  impAtrbt2  String?    @map("imp_atrbt_2") @db.VarChar(200)
+  createdAt  DateTime   @default(now()) @map("created_at")
+  updatedAt  DateTime   @updatedAt @map("updated_at")
+  article    Article360 @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@map("article_bom")
+  @@schema("360article")
+}
+
+/// Article360Flat: Denormalized flat table — single row per article, all fields in one place
+model Article360Flat {
+  id                            String    @id @default(uuid())
+
+  // Links to existing public schema records
+  jobId                         String?   @unique @map("job_id")
+  flatId                        String?   @unique @map("flat_id")
+
+  // Image / File
+  imageName                     String?   @map("image_name") @db.VarChar(255)
+  imageUrl                      String?   @map("image_url")
+
+  // Header
+  division                      String?   @db.VarChar(100)
+  subDivision                   String?   @map("sub_division") @db.VarChar(100)
+  majorCategory                 String?   @map("major_category") @db.VarChar(200)
+  designNumber                  String?   @map("design_number") @db.VarChar(100)
+  vendorName                    String?   @map("vendor_name") @db.VarChar(200)
+  vendorCode                    String?   @map("vendor_code") @db.VarChar(100)
+  referenceArticleNumber        String?   @map("reference_article_number") @db.VarChar(100)
+  referenceArticleDescription   String?   @map("reference_article_description")
+  articleNumber                 String?   @map("article_number") @db.VarChar(100)
+  sapArticleId                  String?   @map("sap_article_id") @db.VarChar(100)
+  mcCode                        String?   @map("mc_code") @db.VarChar(100)
+
+  // BOM
+  rate                          Decimal?  @db.Decimal(10, 2)
+  mrp                           Decimal?  @db.Decimal(10, 2)
+  impAtrbt2                     String?   @map("imp_atrbt_2") @db.VarChar(200)
+
+  // FAB
+  macroMvgr                     String?   @map("macro_mvgr") @db.VarChar(100)
+  yarn1                         String?   @map("yarn_1") @db.VarChar(100)
+  mainMvgr                      String?   @map("main_mvgr") @db.VarChar(100)
+  fabricMainMvgr                String?   @map("fabric_main_mvgr") @db.VarChar(100)
+  weave                         String?   @db.VarChar(100)
+  mFab2                         String?   @map("m_fab2") @db.VarChar(100)
+  composition                   String?   @db.VarChar(200)
+  fCount                        String?   @map("f_count") @db.VarChar(100)
+  fConstruction                 String?   @map("f_construction") @db.VarChar(100)
+  lycra                         String?   @db.VarChar(50)
+  finish                        String?   @db.VarChar(100)
+  gsm                           String?   @db.VarChar(50)
+  fOunce                        String?   @map("f_ounce") @db.VarChar(100)
+  fWidth                        String?   @map("f_width") @db.VarChar(100)
+
+  // BODY
+  collar                        String?   @db.VarChar(100)
+  collarStyle                   String?   @map("collar_style") @db.VarChar(100)
+  neck                          String?   @db.VarChar(100)
+  neckDetails                   String?   @map("neck_details") @db.VarChar(200)
+  placket                       String?   @db.VarChar(100)
+  fatherBelt                    String?   @map("father_belt") @db.VarChar(100)
+  sleeve                        String?   @db.VarChar(100)
+  sleeveFold                    String?   @map("sleeve_fold") @db.VarChar(100)
+  bottomFold                    String?   @map("bottom_fold") @db.VarChar(100)
+  noOfPocket                    String?   @map("no_of_pocket") @db.VarChar(50)
+  pocketType                    String?   @map("pocket_type") @db.VarChar(100)
+  extraPocket                   String?   @map("extra_pocket") @db.VarChar(100)
+  fit                           String?   @db.VarChar(100)
+  bodyStyle                     String?   @map("body_style") @db.VarChar(100)
+  length                        String?   @db.VarChar(100)
+
+  // VA ACC
+  drawcord                      String?   @db.VarChar(100)
+  dcShape                       String?   @map("dc_shape") @db.VarChar(100)
+  button                        String?   @db.VarChar(100)
+  btnColour                     String?   @map("btn_colour") @db.VarChar(100)
+  zipper                        String?   @db.VarChar(100)
+  zipColour                     String?   @map("zip_colour") @db.VarChar(100)
+  patches                       String?   @db.VarChar(100)
+  patchesType                   String?   @map("patches_type") @db.VarChar(100)
+
+  // VA PRCS
+  printType                     String?   @map("print_type") @db.VarChar(100)
+  printStyle                    String?   @map("print_style") @db.VarChar(100)
+  printPlacement                String?   @map("print_placement") @db.VarChar(100)
+  embroidery                    String?   @db.VarChar(100)
+  embroideryType                String?   @map("embroidery_type") @db.VarChar(100)
+  wash                          String?   @db.VarChar(100)
+
+  // Workflow
+  extractionStatus              String?   @default("PENDING") @map("extraction_status") @db.VarChar(50)
+  approvalStatus                String    @default("PENDING") @map("approval_status") @db.VarChar(20)
+  approvedBy                    Int?      @map("approved_by")
+  approvedAt                    DateTime? @map("approved_at")
+  sapSyncStatus                 String    @default("NOT_SYNCED") @map("sap_sync_status") @db.VarChar(20)
+  sapSyncMessage                String?   @map("sap_sync_message")
+
+  // Audit
+  userId                        Int?      @map("user_id")
+  userName                      String?   @map("user_name") @db.VarChar(200)
+  userEmail                     String?   @map("user_email") @db.VarChar(255)
+  createdAt                     DateTime  @default(now()) @map("created_at")
+  updatedAt                     DateTime  @updatedAt @map("updated_at")
+
+  @@index([jobId])
+  @@index([flatId])
+  @@index([majorCategory])
+  @@index([division])
+  @@index([approvalStatus])
+  @@index([designNumber])
+  @@index([vendorName])
+  @@index([articleNumber])
+  @@index([userId])
+  @@index([createdAt])
+  @@index([division, approvalStatus])
+  @@index([referenceArticleNumber])
+  @@map("article_360_flat")
+  @@schema("360article")
 }

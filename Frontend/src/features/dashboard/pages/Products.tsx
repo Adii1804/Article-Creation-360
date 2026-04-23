@@ -60,64 +60,64 @@ type HierarchySubDivision = {
 };
 
 const EDITABLE_ATTRIBUTE_DEFINITIONS: EditableAttributeDefinition[] = [
-  { key: 'division', label: 'Division', field: 'division' },
-  { key: 'sub_division', label: 'Sub-Division', field: 'subDivision' },
-  { key: 'major_category', label: 'Major Category', field: 'majorCategory' },
-  { key: 'vendor_name', label: 'Vendor Name', field: 'vendorName' },
-  { key: 'design_number', label: 'Design Number', field: 'designNumber' },
-  { key: 'ppt_number', label: 'PPT Number', field: 'pptNumber' },
-  { key: 'rate', label: 'Rate', field: 'rate' },
-  { key: 'size', label: 'Size', field: 'size' },
-  { key: 'yarn_01', label: 'Yarn 1', field: 'yarn1' },
-  { key: 'yarn_02', label: 'Yarn 2', field: 'yarn2' },
-  { key: 'fabric_main_mvgr', label: 'Fabric Main MVGR', field: 'fabricMainMvgr' },
-  { key: 'macro_mvgr', label: 'Macro MVGR', field: 'macroMvgr' },
-  { key: 'main_mvgr', label: 'Main MVGR', field: 'mainMvgr' },
-  { key: 'm_fab2', label: 'M FAB 2', field: 'mFab2' },
-  { key: 'weave', label: 'Weave', field: 'weave' },
-  { key: 'composition', label: 'Composition', field: 'composition' },
-  { key: 'finish', label: 'Finish', field: 'finish' },
-  { key: 'gsm', label: 'GSM', field: 'gsm' },
-  { key: 'shade', label: 'Shade', field: 'shade' },
-  { key: 'weight', label: 'G-Weight', field: 'weight' },
-  { key: 'lycra_non_lycra', label: 'Lycra', field: 'lycra' },
-  { key: 'neck', label: 'Neck', field: 'neck' },
-  { key: 'neck_details', label: 'Neck Details', field: 'neckDetails' },
-  { key: 'collar', label: 'Collar', field: 'collar' },
-  { key: 'placket', label: 'Placket', field: 'placket' },
-  { key: 'sleeve', label: 'Sleeve', field: 'sleeve' },
-  { key: 'bottom_fold', label: 'Bottom Fold', field: 'bottomFold' },
-  { key: 'front_open_style', label: 'Front Open Style', field: 'frontOpenStyle' },
-  { key: 'pocket_type', label: 'Pocket Type', field: 'pocketType' },
-  { key: 'fit', label: 'Fit', field: 'fit' },
-  { key: 'pattern', label: 'Pattern', field: 'pattern' },
-  { key: 'length', label: 'Length', field: 'length' },
-  { key: 'drawcord', label: 'Drawcord', field: 'drawcord' },
-  { key: 'button', label: 'Button', field: 'button' },
-  { key: 'zipper', label: 'Zipper', field: 'zipper' },
-  { key: 'zip_colour', label: 'Zip Colour', field: 'zipColour' },
-  { key: 'print_type', label: 'Print Type', field: 'printType' },
-  { key: 'print_style', label: 'Print Style', field: 'printStyle' },
-  { key: 'print_placement', label: 'Print Placement', field: 'printPlacement' },
-  { key: 'patches', label: 'Patches', field: 'patches' },
-  { key: 'patches_type', label: 'Patches Type', field: 'patchesType' },
-  { key: 'embroidery', label: 'Embroidery', field: 'embroidery' },
-  { key: 'embroidery_type', label: 'Embroidery Type', field: 'embroideryType' },
-  { key: 'wash', label: 'Wash', field: 'wash' },
-  { key: 'father_belt', label: 'Father Belt', field: 'fatherBelt' },
-  { key: 'child_belt', label: 'Child Belt', field: 'childBelt' },
-  { key: 'reference_article_number', label: 'Reference Article Number', field: 'referenceArticleNumber' },
-  { key: 'reference_article_description', label: 'Reference Article Description', field: 'referenceArticleDescription' },
-  { key: 'vendor_code', label: 'Vendor Code', field: 'vendorCode' },
-  { key: 'mrp', label: 'MRP', field: 'mrp' },
-  { key: 'mc_code', label: 'MC Code', field: 'mcCode' },
-  { key: 'segment', label: 'Segment', field: 'segment' },
-  { key: 'season', label: 'Season', field: 'season' },
-  { key: 'hsn_tax_code', label: 'HSN Tax Code', field: 'hsnTaxCode' },
-  { key: 'article_description', label: 'Article Description', field: 'articleDescription' },
-  { key: 'fashion_grid', label: 'Fashion Grid', field: 'fashionGrid' },
-  { key: 'year', label: 'Year', field: 'year' },
-  { key: 'article_type', label: 'Article Type', field: 'articleType' },
+  // Header
+  { key: 'division',                       label: 'Division',                      field: 'division' },
+  { key: 'sub_division',                   label: 'Sub-Division',                  field: 'subDivision' },
+  { key: 'major_category',                 label: 'Major Category',                field: 'majorCategory' },
+  { key: 'design_number',                  label: 'Design Number',                 field: 'designNumber' },
+  { key: 'vendor_name',                    label: 'Vendor Name',                   field: 'vendorName' },
+  { key: 'reference_article_number',       label: 'Reference Article Number',      field: 'referenceArticleNumber' },
+  { key: 'reference_article_description',  label: 'Reference Article Description', field: 'referenceArticleDescription' },
+  { key: 'rate',                           label: 'Rate/Cost',                     field: 'rate' },
+  { key: 'mrp',                            label: 'MRP',                           field: 'mrp' },
+  { key: 'imp_atrbt_2',                    label: 'IMP_ATRBT-2',                   field: 'impAtrbt2' },
+  // FAB
+  { key: 'macro_mvgr',      label: 'OTHER MVGR',           field: 'macroMvgr' },
+  { key: 'yarn_01',         label: 'F_YARN',               field: 'yarn1' },
+  { key: 'main_mvgr',       label: 'F_FABRIC MAIN MVGR-01', field: 'mainMvgr' },
+  { key: 'fabric_main_mvgr', label: 'F_FABRIC MAIN MVGR-02', field: 'fabricMainMvgr' },
+  { key: 'weave',           label: 'F_WEAVE_01',           field: 'weave' },
+  { key: 'm_fab2',          label: 'F_WEAVE_02',           field: 'mFab2' },
+  { key: 'composition',     label: 'F_COMP',               field: 'composition' },
+  { key: 'f_count',         label: 'F_COUNT',              field: 'fCount' },
+  { key: 'f_construction',  label: 'F_CONSTRUCTION',       field: 'fConstruction' },
+  { key: 'lycra_non_lycra', label: 'F_STRETCH',            field: 'lycra' },
+  { key: 'finish',          label: 'F_FINISH',             field: 'finish' },
+  { key: 'gsm',             label: 'F_GSM_GLM',            field: 'gsm' },
+  { key: 'f_ounce',         label: 'F_OUNCE',              field: 'fOunce' },
+  { key: 'f_width',         label: 'F_WIDTH',              field: 'fWidth' },
+  // BODY
+  { key: 'collar',          label: 'COLLAR TYPE',          field: 'collar' },
+  { key: 'collar_style',    label: 'COLLAR STYLE',         field: 'collarStyle' },
+  { key: 'neck',            label: 'NECK TYPE',            field: 'neck' },
+  { key: 'neck_details',    label: 'NECK STYLE',           field: 'neckDetails' },
+  { key: 'placket',         label: 'PLACKET',              field: 'placket' },
+  { key: 'father_belt',     label: 'BELT',                 field: 'fatherBelt' },
+  { key: 'sleeve',          label: 'SLEEVE',               field: 'sleeve' },
+  { key: 'sleeve_fold',     label: 'SLEEVE FOLD',          field: 'sleeveFold' },
+  { key: 'bottom_fold',     label: 'BOTTOM FOLD',          field: 'bottomFold' },
+  { key: 'no_of_pocket',    label: 'NO. OF POCKET',        field: 'noOfPocket' },
+  { key: 'pocket_type',     label: 'POCKET TYPE',          field: 'pocketType' },
+  { key: 'extra_pocket',    label: 'EXTRA POCKET',         field: 'extraPocket' },
+  { key: 'fit',             label: 'FIT',                  field: 'fit' },
+  { key: 'body_style',      label: 'BODY STYLE',           field: 'pattern' },
+  { key: 'length',          label: 'LENGTH',               field: 'length' },
+  // VA ACC.
+  { key: 'drawcord',        label: 'DC_TYPE',              field: 'drawcord' },
+  { key: 'dc_shape',        label: 'DC_SHAPE',             field: 'dcShape' },
+  { key: 'button',          label: 'BTN_TYPE',             field: 'button' },
+  { key: 'btn_colour',      label: 'BTN_CLR',              field: 'btnColour' },
+  { key: 'zipper',          label: 'ZIP_TYPE',             field: 'zipper' },
+  { key: 'zip_colour',      label: 'ZIP_CLR',              field: 'zipColour' },
+  { key: 'patches',         label: 'PATCH_TYPE',           field: 'patches' },
+  { key: 'patches_type',    label: 'PATCH_STYLE',          field: 'patchesType' },
+  // VA PRCS
+  { key: 'print_type',      label: 'PRT_TYPE',             field: 'printType' },
+  { key: 'print_style',     label: 'PRT_STYLE',            field: 'printStyle' },
+  { key: 'print_placement', label: 'PRT_PLCMNT',           field: 'printPlacement' },
+  { key: 'embroidery',      label: 'EMB_TYPE',             field: 'embroidery' },
+  { key: 'embroidery_type', label: 'EMB_STYLE',            field: 'embroideryType' },
+  { key: 'wash',            label: 'WASH',                 field: 'wash' },
 ];
 
 // ── Variant sub-table (read-only) used in the Products history view ───────────
@@ -949,43 +949,40 @@ export default function Products() {
       </div>
 
       <Card className="products-table-card" styles={{ body: { padding: '6px 8px' } }}>
-        {filteredRows.length === 0 ? (
-          <Empty description="No extraction history yet" />
-        ) : (
-          <div ref={tableWrapperRef}>
-            <Table
-              columns={columns}
-              dataSource={filteredRows}
-              rowKey={(row) => row.key}
-              size="small"
-              expandable={{
-                expandedRowRender: (record) => (
-                  <VariantReadOnlySubTable jobId={record.flatData?.id || record.jobId} />
-                ),
-                expandRowByClick: false,
-                rowExpandable: () => true,
-              }}
-              pagination={{
-                pageSize: 50,
-                showSizeChanger: true,
-                pageSizeOptions: ['50', '100', '200'],
-                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
-                position: ['bottomRight'],
-              }}
-              className="products-table"
-              loading={loading}
-              scroll={{ x: 'max-content', y: scrollY }}
-              sticky
-              rowSelection={{
-                selectedRowKeys,
-                onChange: (keys, selected) => {
-                  setSelectedRowKeys(keys as string[]);
-                  setSelectedRows(selected as ProductRow[]);
-                }
-              }}
-            />
-          </div>
-        )}
+        <div ref={tableWrapperRef}>
+          <Table
+            columns={columns}
+            dataSource={filteredRows}
+            rowKey={(row) => row.key}
+            size="small"
+            expandable={{
+              expandedRowRender: (record) => (
+                <VariantReadOnlySubTable jobId={record.flatData?.id || record.jobId} />
+              ),
+              expandRowByClick: false,
+              rowExpandable: () => true,
+            }}
+            pagination={{
+              pageSize: 50,
+              showSizeChanger: true,
+              pageSizeOptions: ['50', '100', '200'],
+              showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+              position: ['bottomRight'],
+            }}
+            className="products-table"
+            loading={loading}
+            locale={{ emptyText: <Empty description="No extraction history yet" /> }}
+            scroll={{ x: 'max-content', y: scrollY }}
+            sticky
+            rowSelection={{
+              selectedRowKeys,
+              onChange: (keys, selected) => {
+                setSelectedRowKeys(keys as string[]);
+                setSelectedRows(selected as ProductRow[]);
+              }
+            }}
+          />
+        </div>
       </Card>
 
       <Modal
@@ -1097,7 +1094,19 @@ export default function Products() {
                     return (
                       <Input
                         value={editValues[item.key] ?? ''}
-                        onChange={(e) => setEditValues((prev) => ({ ...prev, [item.key]: e.target.value }))}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setEditValues((prev) => {
+                            const next = { ...prev, [item.key]: val };
+                            if (item.key === 'rate') {
+                              const rate = parseFloat(val);
+                              if (!isNaN(rate) && rate > 0) {
+                                next['mrp'] = String(Math.ceil(rate * 1.47 / 25) * 25);
+                              }
+                            }
+                            return next;
+                          });
+                        }}
                         disabled={savingEdits}
                         placeholder={`Enter ${item.label}`}
                       />

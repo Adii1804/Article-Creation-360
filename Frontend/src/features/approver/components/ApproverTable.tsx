@@ -5,6 +5,7 @@ import type { FormInstance } from 'antd/es/form';
 import { getImageUrl } from '../../../shared/utils/common/helpers';
 import { SIMPLIFIED_HIERARCHY } from '../../extraction/components/SimplifiedCategorySelector';
 import { MAJOR_CATEGORY_ALLOWED_VALUES } from '../../../data/majorCategoryMcCodeMap';
+import { getMajCatAllowedValues } from '../../../data/majCatAttributeMap';
 import { APP_CONFIG } from '../../../constants/app/config';
 import { formatDivisionLabel } from '../../../shared/utils/ui/formatters';
 import './ApproverTable.css';
@@ -59,6 +60,10 @@ export interface ApproverItem {
     pptNumber: string | null;
     referenceArticleNumber: string | null;
     referenceArticleDescription: string | null;
+    bodyArticle: string | null;
+    bodyArticleDescription: string | null;
+    fabricArticleNumber: string | null;
+    fabricArticleDescription: string | null;
     // New business fields
     vendorCode: string | null;
     mrp: number | string | null;
@@ -98,6 +103,16 @@ export interface ApproverItem {
     embroideryType: string | null;
     fatherBelt: string | null;
     childBelt: string | null;
+    fCount: string | null;
+    fConstruction: string | null;
+    fOunce: string | null;
+    fWidth: string | null;
+    sleeveFold: string | null;
+    noOfPocket: string | null;
+    extraPocket: string | null;
+    dcShape: string | null;
+    btnColour: string | null;
+    collarStyle: string | null;
     // Variant system fields
     isGeneric: boolean;
     genericArticleId: string | null;
@@ -494,19 +509,6 @@ export const ApproverTable: React.FC<ApproverTableProps> = ({
                 );
             }
         },
-        // Core + fabric sequence
-        { title: 'Macro MVGR', dataIndex: 'macroMvgr', key: 'macroMvgr', width: 130, editable: true },
-        { title: 'Main MVGR', dataIndex: 'mainMvgr', key: 'mainMvgr', width: 130, editable: true },
-        { title: 'Yarn 1', dataIndex: 'yarn1', key: 'yarn1', width: 120, editable: true },
-        { title: 'Fabric Main', dataIndex: 'fabricMainMvgr', key: 'fabricMainMvgr', width: 150, editable: true },
-        { title: 'Weave', dataIndex: 'weave', key: 'weave', width: 100, editable: true },
-        { title: 'M FAB 2', dataIndex: 'mFab2', key: 'mFab2', width: 120, editable: true },
-        { title: 'Composition', dataIndex: 'composition', key: 'composition', width: 150, editable: true },
-        { title: 'Finish', dataIndex: 'finish', key: 'finish', width: 120, editable: true },
-        { title: 'GSM', dataIndex: 'gsm', key: 'gsm', width: 80, editable: true },
-        { title: 'G-Weight', dataIndex: 'weight', key: 'weight', width: 120, editable: true },
-        { title: 'Lycra', dataIndex: 'lycra', key: 'lycra', width: 100, editable: true },
-        { title: 'Shade', dataIndex: 'shade', key: 'shade', width: 120, editable: true },
         { title: 'Rate', dataIndex: 'rate', key: 'rate', width: 100, editable: true },
         { title: 'MRP', dataIndex: 'mrp', key: 'mrp', width: 100, editable: true },
         {
@@ -523,41 +525,6 @@ export const ApproverTable: React.FC<ApproverTableProps> = ({
             }
         },
         { title: 'Size', dataIndex: 'size', key: 'size', width: 120, editable: true },
-        { title: 'Pattern', dataIndex: 'pattern', key: 'pattern', width: 120, editable: true },
-        { title: 'Fit', dataIndex: 'fit', key: 'fit', width: 120, editable: true },
-        { title: 'Wash', dataIndex: 'wash', key: 'wash', width: 120, editable: true },
-
-        // Design Details
-        { title: 'Neck', dataIndex: 'neck', key: 'neck', width: 120, editable: true },
-        { title: 'Neck Details', dataIndex: 'neckDetails', key: 'neckDetails', width: 150, editable: true },
-        { title: 'Sleeve', dataIndex: 'sleeve', key: 'sleeve', width: 120, editable: true },
-        { title: 'Length', dataIndex: 'length', key: 'length', width: 100, editable: true },
-        { title: 'Collar', dataIndex: 'collar', key: 'collar', width: 120, editable: true },
-        { title: 'Placket', dataIndex: 'placket', key: 'placket', width: 120, editable: true },
-        { title: 'Bottom Fold', dataIndex: 'bottomFold', key: 'bottomFold', width: 120, editable: true },
-        { title: 'Front Open', dataIndex: 'frontOpenStyle', key: 'frontOpenStyle', width: 150, editable: true },
-
-        // Accessories & Others
-        { title: 'Pocket', dataIndex: 'pocketType', key: 'pocketType', width: 120, editable: true },
-        { title: 'Drawcord', dataIndex: 'drawcord', key: 'drawcord', width: 100, editable: true },
-        { title: 'Button', dataIndex: 'button', key: 'button', width: 100, editable: true },
-        { title: 'Zipper', dataIndex: 'zipper', key: 'zipper', width: 100, editable: true },
-        { title: 'Zip Color', dataIndex: 'zipColour', key: 'zipColour', width: 120, editable: true },
-        { title: 'Father Belt', dataIndex: 'fatherBelt', key: 'fatherBelt', width: 120, editable: true },
-        { title: 'Child Belt', dataIndex: 'childBelt', key: 'childBelt', width: 120, editable: true },
-
-        // Prints & Embellishments
-        { title: 'Print Type', dataIndex: 'printType', key: 'printType', width: 120, editable: true },
-        { title: 'Print Style', dataIndex: 'printStyle', key: 'printStyle', width: 120, editable: true },
-        { title: 'Print Place', dataIndex: 'printPlacement', key: 'printPlacement', width: 120, editable: true },
-        { title: 'Patches', dataIndex: 'patches', key: 'patches', width: 120, editable: true },
-        { title: 'Patch Type', dataIndex: 'patchesType', key: 'patchesType', width: 120, editable: true },
-        { title: 'Embroidery', dataIndex: 'embroidery', key: 'embroidery', width: 120, editable: true },
-        { title: 'Emb Type', dataIndex: 'embroideryType', key: 'embroideryType', width: 120, editable: true },
-
-        // Reference
-        { title: 'Ref Article', dataIndex: 'referenceArticleNumber', key: 'referenceArticleNumber', width: 150, editable: true },
-        { title: 'Ref Desc', dataIndex: 'referenceArticleDescription', key: 'referenceArticleDescription', width: 200, ellipsis: true, editable: true },
 
         // Business & SAP Fields
         { title: 'Vendor Code', dataIndex: 'vendorCode', key: 'vendorCode', width: 130, editable: true },
@@ -629,79 +596,39 @@ export const ApproverTable: React.FC<ApproverTableProps> = ({
     ], [onEdit]);
 
 
+    // dataIndex (camelCase) → schema key used in getMajCatAllowedValues
+    const COL_TO_SCHEMA_KEY: Record<string, string> = {
+        macroMvgr: 'macro_mvgr', mainMvgr: 'main_mvgr', yarn1: 'yarn_01',
+        fabricMainMvgr: 'fabric_main_mvgr', weave: 'weave', mFab2: 'm_fab2',
+        composition: 'composition', finish: 'finish', gsm: 'gsm',
+        lycra: 'lycra_non_lycra', pattern: 'body_style', fit: 'fit', wash: 'wash',
+        neck: 'neck', neckDetails: 'neck_details', collar: 'collar', placket: 'placket',
+        sleeve: 'sleeve', length: 'length', bottomFold: 'bottom_fold',
+        frontOpenStyle: 'front_open_style', pocketType: 'pocket_type',
+        drawcord: 'drawcord', button: 'button', zipper: 'zipper',
+        zipColour: 'zip_colour', fatherBelt: 'father_belt', childBelt: 'child_belt',
+        printType: 'print_type', printStyle: 'print_style', printPlacement: 'print_placement',
+        patches: 'patches', patchesType: 'patches_type',
+        embroidery: 'embroidery', embroideryType: 'embroidery_type',
+    };
+
     const columns = defaultColumns.map((col) => {
         if (!col.editable) {
             return col;
         }
 
-        // Check if this column maps to a master attribute with allowed values
-        // attributes keys might be UPPERCASE or snake_case, while dataIndex is camelCase
-        const attribute = attributes.find(a => {
-            const key = a.key.toUpperCase();
-            const colKey = String(col.dataIndex).toUpperCase();
-
-            if (key === colKey) return true;
-
-            // Handle specific mappings
-            if (colKey === 'COLOUR' && key === 'COLOR') return true;
-            if (colKey === 'MAJORCATEGORY' && key === 'MAJOR_CATEGORY') return true;
-            if (colKey === 'FABRICMAINMVGR' && key === 'FABRIC_MAIN_MVGR') return true;
-            if (colKey === 'NECKDETAILS' && key === 'NECK_DETAIL') return true;
-            if (colKey === 'ZIPCOLOUR' && key === 'ZIP_COLOUR') return true;
-            if (colKey === 'BOTTOMFOLD' && key === 'BOTTOM_FOLD') return true;
-            if (colKey === 'FRONTOPENSTYLE' && key === 'FRONT_OPEN_STYLE') return true;
-            if (colKey === 'POCKETTYPE' && key === 'POCKET_TYPE') return true;
-            if (colKey === 'CHILD_BELT' && key === 'CHILD_BELT_DETAIL') return true;
-            if (colKey === 'CHILDBELT' && key === 'CHILD_BELT_DETAIL') return true;
-            if (colKey === 'MACROMVGR' && key === 'MACRO_MVGR') return true;
-            if (colKey === 'MAINMVGR' && key === 'MAIN_MVGR') return true;
-            if (colKey === 'MFAB2' && key === 'M_FAB2') return true;
-            if (colKey === 'FATHERBELT' && key === 'FATHER_BELT') return true;
-            if (colKey === 'PRINTTYPE' && key === 'PRINT_TYPE') return true;
-            if (colKey === 'PRINTSTYLE' && key === 'PRINT_STYLE') return true;
-            if (colKey === 'PRINTPLACEMENT' && key === 'PRINT_PLACEMENT') return true;
-            if (colKey === 'PATCHESTYPE' && key === 'PATCH_TYPE') return true;
-            if (colKey === 'EMBROIDERYTYPE' && key === 'EMBROIDERY_TYPE') return true;
-            if (colKey === 'ARTICLETYPE' && key === 'ARTICLE_TYPE') return true;
-            if (colKey === 'YARN1' && key === 'YARN_01') return true;
-            if (colKey === 'YARN2' && key === 'YARN_02') return true;
-
-            return false;
-        });
-
-        // User requested NO dropdown for SIZE, even if it has allowed values
-        const isSize = String(col.dataIndex).toUpperCase() === 'SIZE';
-        const hasOptions = !isSize && attribute && attribute.allowedValues && attribute.allowedValues.length > 0;
-
         return {
             ...col,
             onCell: (record: ApproverItem) => {
 
-                // Disable editing for Approved items
                 if (record.approvalStatus === 'APPROVED') {
-                    return {
-                        record,
-                        editable: false,
-                        dataIndex: col.dataIndex,
-                        title: col.title,
-                        handleSave: () => { },
-                        style: { background: '#f6ffed', cursor: 'not-allowed' } // Light green background to indicate approved/locked
-                    };
+                    return { record, editable: false, dataIndex: col.dataIndex, title: col.title, handleSave: () => {}, style: { background: '#f6ffed', cursor: 'not-allowed' } };
                 }
 
-                // Disable editing for Rejected items and show them in red
                 if (record.approvalStatus === 'REJECTED') {
-                    return {
-                        record,
-                        editable: false,
-                        dataIndex: col.dataIndex,
-                        title: col.title,
-                        handleSave: () => { },
-                        style: { background: '#fff1f0', cursor: 'not-allowed' } // Light red background to indicate rejected/locked
-                    };
+                    return { record, editable: false, dataIndex: col.dataIndex, title: col.title, handleSave: () => {}, style: { background: '#fff1f0', cursor: 'not-allowed' } };
                 }
 
-                // RBAC: Restrict editing for Approvers
                 const field = String(col.dataIndex);
                 let canEditField = col.editable;
                 if (user?.role === 'APPROVER' || user?.role === 'CATEGORY_HEAD') {
@@ -710,58 +637,40 @@ export const ApproverTable: React.FC<ApproverTableProps> = ({
                 }
 
                 if (!canEditField) {
-                    return {
-                        record,
-                        editable: false,
-                        dataIndex: col.dataIndex,
-                        title: col.title,
-                        handleSave: () => { },
-                    };
+                    return { record, editable: false, dataIndex: col.dataIndex, title: col.title, handleSave: () => {} };
                 }
 
-                // Dropdown Logic
-                let inputType = hasOptions ? 'select' : 'text';
-                let options = hasOptions ? attribute.allowedValues.map(v => ({ label: v.shortForm, value: v.shortForm })) : [];
+                let inputType: 'text' | 'select' = 'text';
+                let options: { label: string; value: string }[] = [];
 
-                if (col.dataIndex === 'subDivision') {
+                if (field === 'subDivision') {
                     inputType = 'select';
-                    const divisionName = record.division;
                     let hierKey = '';
-                    if (divisionName?.match(/LADIES|WOMEN/i)) hierKey = 'Ladies';
-                    else if (divisionName?.match(/KIDS/i)) hierKey = 'Kids';
-                    else if (divisionName?.match(/MEN/i)) hierKey = 'MENS';
-
-                    const subDivs = SIMPLIFIED_HIERARCHY[hierKey as keyof typeof SIMPLIFIED_HIERARCHY] || [];
-                    options = subDivs.map((sd: string) => ({ label: sd, value: sd }));
-                }
-
-                if (col.dataIndex === 'majorCategory') {
+                    if (record.division?.match(/LADIES|WOMEN/i)) hierKey = 'Ladies';
+                    else if (record.division?.match(/KIDS/i)) hierKey = 'Kids';
+                    else if (record.division?.match(/MEN/i)) hierKey = 'MENS';
+                    options = (SIMPLIFIED_HIERARCHY[hierKey as keyof typeof SIMPLIFIED_HIERARCHY] || []).map((sd: string) => ({ label: sd, value: sd }));
+                } else if (field === 'majorCategory') {
                     inputType = 'select';
-                    const divisionName = record.division || '';
+                    const div = record.division || '';
                     let prefixRegex: RegExp | null = null;
-
-                    // Filter based on Division
-                    if (divisionName.match(/MEN/i)) prefixRegex = /^M|^MW/i;
-                    else if (divisionName.match(/LADIES|WOMEN/i)) prefixRegex = /^L|^LW/i;
-                    else if (divisionName.match(/KIDS/i)) prefixRegex = /^(K|I|J|Y|G)/i; // Kids, Infant, Junior, Younger, Girls
-
-                    const filtered = MAJOR_CATEGORY_ALLOWED_VALUES.filter(v => {
-                        if (!prefixRegex) return true; // Show all if no division selected
-                        return v.shortForm.match(prefixRegex);
-                    });
-
-                    options = filtered.map(v => ({ label: v.shortForm, value: v.shortForm }));
+                    if (div.match(/MEN/i)) prefixRegex = /^M|^MW/i;
+                    else if (div.match(/LADIES|WOMEN/i)) prefixRegex = /^L|^LW/i;
+                    else if (div.match(/KIDS/i)) prefixRegex = /^(K|I|J|Y|G)/i;
+                    options = MAJOR_CATEGORY_ALLOWED_VALUES.filter(v => !prefixRegex || v.shortForm.match(prefixRegex)).map(v => ({ label: v.shortForm, value: v.shortForm }));
+                } else {
+                    // Try to get Excel-filtered values for this column based on the row's major category
+                    const schemaKey = COL_TO_SCHEMA_KEY[field];
+                    if (schemaKey && record.majorCategory) {
+                        const excelValues = getMajCatAllowedValues(record.majorCategory, schemaKey);
+                        if (excelValues && excelValues.length > 0) {
+                            inputType = 'select';
+                            options = excelValues.map(v => ({ label: v.shortForm, value: v.shortForm }));
+                        }
+                    }
                 }
 
-                return {
-                    record,
-                    editable: col.editable,
-                    dataIndex: col.dataIndex,
-                    title: col.title,
-                    handleSave: onSave,
-                    inputType,
-                    options
-                };
+                return { record, editable: col.editable, dataIndex: col.dataIndex, title: col.title, handleSave: onSave, inputType, options };
             },
         };
     });

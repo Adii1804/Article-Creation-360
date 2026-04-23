@@ -10,6 +10,7 @@ import fs from 'fs';
 import * as XLSX from 'xlsx';
 import { randomUUID } from 'crypto';
 import { prismaClient as prisma } from '../utils/prisma';
+import { upsert360ArticleFlatRow, mirror360FlatUpdate } from '../utils/mirror360Flat';
 
 interface SizeMappingRow {
   'SUB-DIV': unknown;
@@ -105,26 +106,30 @@ export async function createVariantsForGeneric(genericId: string): Promise<void>
           }
         });
 
-        await prisma.extractionResultFlat.create({
-          data: {
-            ...rest,
-            id: randomUUID(),
-            jobId: newJob.id,
-            imageUncPath: null,
-            approvalStatus: 'PENDING',
-            approvedBy: null,
-            approvedAt: null,
-            sapSyncStatus: 'NOT_SYNCED',
-            sapArticleId: null,
-            sapSyncMessage: null,
-            isGeneric: false,
-            genericArticleId: genericId,
-            variantSize: size,
-            size: size,
-            colour: generic.colour || null,
-            variantColor: generic.colour || null,
-          }
-        });
+        const variantId = randomUUID();
+        const variantData = {
+          ...rest,
+          id: variantId,
+          jobId: newJob.id,
+          imageUncPath: null,
+          approvalStatus: 'PENDING' as const,
+          approvedBy: null,
+          approvedAt: null,
+          sapSyncStatus: 'NOT_SYNCED' as const,
+          sapArticleId: null,
+          sapSyncMessage: null,
+          isGeneric: false,
+          genericArticleId: genericId,
+          variantSize: size,
+          size: size,
+          colour: generic.colour || null,
+          variantColor: generic.colour || null,
+        };
+        await prisma.extractionResultFlat.create({ data: variantData });
+
+        // Mirror to 360article (fire-and-forget)
+        void upsert360ArticleFlatRow(variantId, variantData as Record<string, unknown>);
+
         console.log(`[VariantCreation] Created variant size=${size} for generic=${genericId}`);
       } catch (err: any) {
         console.error(`[VariantCreation] Failed for size ${size}:`, err?.message);
@@ -184,26 +189,30 @@ export async function addColorVariants(genericId: string, color: string): Promis
           designNumber: generic.articleNumber,
         }
       });
-      await prisma.extractionResultFlat.create({
-        data: {
-          ...rest,
-          id: randomUUID(),
-          jobId: newJob.id,
-          imageUncPath: null,
-          approvalStatus: 'PENDING',
-          approvedBy: null,
-          approvedAt: null,
-          sapSyncStatus: 'NOT_SYNCED',
-          sapArticleId: null,
-          sapSyncMessage: null,
-          isGeneric: false,
-          genericArticleId: genericId,
-          variantSize: size,
-          size: size,
-          variantColor: color,
-          colour: color,
-        }
-      });
+      const colorVariantId = randomUUID();
+      const colorVariantData = {
+        ...rest,
+        id: colorVariantId,
+        jobId: newJob.id,
+        imageUncPath: null,
+        approvalStatus: 'PENDING' as const,
+        approvedBy: null,
+        approvedAt: null,
+        sapSyncStatus: 'NOT_SYNCED' as const,
+        sapArticleId: null,
+        sapSyncMessage: null,
+        isGeneric: false,
+        genericArticleId: genericId,
+        variantSize: size,
+        size: size,
+        variantColor: color,
+        colour: color,
+      };
+      await prisma.extractionResultFlat.create({ data: colorVariantData });
+
+      // Mirror to 360article (fire-and-forget)
+      void upsert360ArticleFlatRow(colorVariantId, colorVariantData as Record<string, unknown>);
+
       created++;
     } catch (err: any) {
       console.error(`[VariantCreation] addColor failed for size=${size}:`, err?.message);
@@ -213,28 +222,42 @@ export async function addColorVariants(genericId: string, color: string): Promis
 }
 
 export async function syncGenericToVariants(genericId: string, updatedData: Record<string, any>): Promise<void> {
-  // Remove variant-specific fields from sync payload
-  const syncData: Record<string, any> = {};
-  for (const [key, val] of Object.entries(updatedData)) {
-    if (!VARIANT_ONLY_FIELDS.includes(key)) {
-      syncData[key] = val;
+  try {
+    // Remove variant-specific fields from sync payload
+    const syncData: Record<string, any> = {};
+    for (const [key, val] of Object.entries(updatedData)) {
+      if (!VARIANT_ONLY_FIELDS.includes(key)) {
+        syncData[key] = val;
+      }
     }
-  }
 
-  // Special case: sync colour from generic to variants that have no variantColor set yet
-  // (variants with explicit variantColor keep their own colour)
-  if (updatedData.colour !== undefined) {
-    await prisma.extractionResultFlat.updateMany({
-      where: { genericArticleId: genericId, isGeneric: false, variantColor: null },
-      data: { colour: updatedData.colour, variantColor: updatedData.colour }
+    // Special case: sync colour from generic to variants that have no variantColor set yet
+    // (variants with explicit variantColor keep their own colour)
+    if (updatedData.colour !== undefined) {
+      await prisma.extractionResultFlat.updateMany({
+        where: { genericArticleId: genericId, isGeneric: false, variantColor: null },
+        data: { colour: updatedData.colour, variantColor: updatedData.colour }
+      });
+    }
+
+    if (Object.keys(syncData).length === 0) return;
+
+    const variantIds = await prisma.extractionResultFlat.findMany({
+      where: { genericArticleId: genericId, isGeneric: false },
+      select: { id: true }
     });
+
+    await prisma.extractionResultFlat.updateMany({
+      where: { genericArticleId: genericId, isGeneric: false },
+      data: syncData
+    });
+
+    // Mirror sync to 360article (fire-and-forget)
+    void Promise.all(variantIds.map(v => mirror360FlatUpdate(v.id, syncData)));
+
+    console.log(`[VariantSync] Synced ${Object.keys(syncData).length} fields to variants of generic=${genericId}`);
+  } catch (err: any) {
+    // Log but do not rethrow — variant sync failure must not crash the main update request
+    console.error(`[VariantSync] Failed to sync variants for generic=${genericId}:`, err?.message ?? err);
   }
-
-  if (Object.keys(syncData).length === 0) return;
-
-  await prisma.extractionResultFlat.updateMany({
-    where: { genericArticleId: genericId, isGeneric: false },
-    data: syncData
-  });
-  console.log(`[VariantSync] Synced ${Object.keys(syncData).length} fields to variants of generic=${genericId}`);
 }

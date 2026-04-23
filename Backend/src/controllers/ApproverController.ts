@@ -9,6 +9,7 @@ import { ARTICLE_DESCRIPTION_SOURCE_FIELDS, buildArticleDescription } from '../u
 import { prismaClient as prisma } from '../utils/prisma';
 import { syncGenericToVariants, addColorVariants } from '../services/variantCreationService';
 import { hasVendorCode, isValidVendorCode, normalizeVendorCode } from '../utils/vendorCode';
+import { mirror360FlatUpdate } from '../utils/mirror360Flat';
 
 export class ApproverController {
     private static readonly STARTUP_BACKFILL_BATCH_SIZE = parseInt(process.env.STARTUP_BACKFILL_BATCH_SIZE || '250', 10);
@@ -666,7 +667,7 @@ export class ApproverController {
 
     static async getItems(req: Request, res: Response) {
         try {
-            const { status, division, subDivision, startDate, endDate, search, page = 1, limit = 50, pathType } = req.query;
+            const { status, division, subDivision, majorCategory, startDate, endDate, search, page = 1, limit = 50, pathType } = req.query;
 
             // ── Response cache (8 s TTL) ───────────────────────────────────────────
             // Key includes all query params + user scope so different users/filters
@@ -703,28 +704,14 @@ export class ApproverController {
             }
 
             // Path-type filter — NON-BLOCKING.
-            // Read old IDs only if the cache is already warm (instant).
-            // If the cache is cold, kick off a background load and skip the old/new split
-            // so this request returns immediately. The next request (after ~5s) will have
-            // the warm cache and apply the filter correctly.
             if (pathType === 'old' || pathType === 'new') {
-                const cachedOld = ApproverController.oldArticleIdsCache;
-                const oldIds = (cachedOld && cachedOld.expiresAt > Date.now()) ? cachedOld.ids : null;
+                const oldIds = await ApproverController.getOldArticleIds();
 
-                if (oldIds === null) {
-                    // Cache cold — fire background warm, skip old/new split this request.
-                    void ApproverController.getOldArticleIds();
+                where.AND = where.AND || [];
+                if (pathType === 'old') {
+                    where.AND.push({ id: { in: oldIds.length > 0 ? oldIds : [] } });
                 } else {
-                    where.AND = where.AND || [];
-                    if (pathType === 'old') {
-                        where.AND.push({ id: { in: oldIds.length > 0 ? oldIds : [] } });
-                    } else {
-                        if (oldIds.length > 0) where.AND.push({ id: { notIn: oldIds } });
-                    }
-                }
-
-                if (pathType === 'new') {
-                    where.AND = where.AND || [];
+                    if (oldIds.length > 0) where.AND.push({ id: { notIn: oldIds } });
                     where.AND.push({ NOT: { approvalStatus: ApprovalStatus.REJECTED } });
                 }
             } else if (pathType === 'rejected') {
@@ -788,6 +775,9 @@ export class ApproverController {
                     { referenceArticleNumber: { contains: searchTerm, mode: 'insensitive' } }
                 ];
             }
+
+            // Major category filter
+            if (majorCategory) where.majorCategory = majorCategory as string;
 
             // Only show generic articles in the main list (variants are fetched via /items/:id/variants)
             where.isGeneric = true;
@@ -942,7 +932,7 @@ export class ApproverController {
     // Export ALL items matching current filters (no pagination) — used for bulk Excel download
     static async exportAll(req: Request, res: Response) {
         try {
-            const { status, division, subDivision, startDate, endDate, search, pathType } = req.query;
+            const { status, division, subDivision, majorCategory, startDate, endDate, search, pathType } = req.query;
 
             const where: any = {};
 
@@ -1028,6 +1018,12 @@ export class ApproverController {
                 ];
             }
 
+            // Major category filter
+            if (majorCategory) where.majorCategory = majorCategory as string;
+
+            // Only generic articles (variants are sub-rows, not top-level exports)
+            where.isGeneric = true;
+
             // Fetch ALL matching rows (no skip/take) ordered by createdAt desc
             const items = await prisma.extractionResultFlat.findMany({
                 where,
@@ -1100,6 +1096,7 @@ export class ApproverController {
                 'zipColour', 'printType', 'printStyle', 'printPlacement', 'patches',
                 'patchesType', 'embroidery', 'embroideryType', 'wash', 'fatherBelt', 'childBelt',
                 'referenceArticleNumber', 'referenceArticleDescription',
+                'impAtrbt2',
                 // New business fields
                 'macroMvgr', 'mainMvgr', 'mFab2',
                 'vendorCode', 'mrp', 'mcCode', 'segment', 'season',
@@ -1300,6 +1297,9 @@ export class ApproverController {
                 data
             });
 
+            // Mirror to 360article.article_360_flat (fire-and-forget)
+            void mirror360FlatUpdate(id, data);
+
             // Only sync mcCode/hsnTaxCode across rows when majorCategory actually changed.
             if (data.majorCategory !== undefined && data.majorCategory !== existingItem.majorCategory && updated.majorCategory) {
                 const expectedMcCode = getMcCodeByMajorCategory(updated.majorCategory) || null;
@@ -1414,6 +1414,19 @@ export class ApproverController {
             if (syncUpdates.length > 0) {
                 await prisma.$transaction(syncUpdates);
             }
+
+            // Mirror approval + SAP sync outcome to 360article.article_360_flat
+            void Promise.all(finalizedSyncResults.map((syncResult: any) => {
+                const approvedItem = approvedItemById.get(syncResult.id);
+                return mirror360FlatUpdate(syncResult.id, {
+                    approvalStatus:  'APPROVED',
+                    sapSyncStatus:   syncResult.success ? 'SYNCED' : 'FAILED',
+                    sapSyncMessage:  syncResult.message ?? null,
+                    sapArticleId:    syncResult.sapArticleNumber ?? null,
+                    articleNumber:   syncResult.sapArticleNumber ?? approvedItem?.articleNumber ?? null,
+                    imageUrl:        syncResult.approvedImageUrl ?? approvedItem?.imageUrl ?? null,
+                });
+            }));
 
             // Phase 2: Upload approved image only after article creation is persisted.
             await Promise.all(finalizedSyncResults.map(async (syncResult: any) => {
@@ -1543,8 +1556,17 @@ export class ApproverController {
                 }
             });
 
+            // Mirror rejection to 360article (fire-and-forget)
+            void Promise.all(ids.map((rid: string) =>
+                mirror360FlatUpdate(rid, { approvalStatus: 'REJECTED', sapSyncStatus: 'NOT_SYNCED' })
+            ));
+
             // Auto-reject all variants of rejected generic articles
             const rejectedIds = ids;
+            const variantsToReject = await prisma.extractionResultFlat.findMany({
+                where: { genericArticleId: { in: rejectedIds }, isGeneric: false },
+                select: { id: true }
+            });
             await prisma.extractionResultFlat.updateMany({
                 where: {
                     genericArticleId: { in: rejectedIds },
@@ -1558,6 +1580,11 @@ export class ApproverController {
                     approvedAt: new Date()
                 }
             });
+
+            // Mirror variant rejections to 360article (fire-and-forget)
+            void Promise.all(variantsToReject.map(v =>
+                mirror360FlatUpdate(v.id, { approvalStatus: 'REJECTED', sapSyncStatus: 'NOT_SYNCED' })
+            ));
 
             return res.json({
                 message: 'Items rejected',

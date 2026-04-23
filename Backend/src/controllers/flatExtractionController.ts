@@ -3,6 +3,7 @@ import { prismaClient as prisma } from '../utils/prisma';
 import { getHsnCodeByMcCode, getMcCodeByMajorCategory } from '../utils/mcCodeMapper';
 import { parseNumericValue } from '../utils/mrpCalculator';
 import { hasVendorCode, isValidVendorCode, normalizeVendorCode } from '../utils/vendorCode';
+import { mirror360FlatUpdate } from '../utils/mirror360Flat';
 
 export class FlatExtractionController {
     private attributeKeyToFieldMap: Record<string, string> = {
@@ -87,7 +88,10 @@ export class FlatExtractionController {
         fashiongrid: 'fashionGrid',
         year: 'year',
         article_type: 'articleType',
-        articletype: 'articleType'
+        articletype: 'articleType',
+        imp_atrbt_2: 'impAtrbt2',
+        impatrbt2: 'impAtrbt2',
+        imp_atrbt2: 'impAtrbt2'
     };
 
     private normalizeAttributeKey(key: string): string {
@@ -363,6 +367,9 @@ export class FlatExtractionController {
                 where: { id: existing.id },
                 data
             });
+
+            // Mirror to 360article.article_360_flat (fire-and-forget)
+            void mirror360FlatUpdate(existing.id, data);
 
             res.json({
                 success: true,

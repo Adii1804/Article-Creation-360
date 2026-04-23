@@ -1,12 +1,15 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Card, Button, Typography, message, Modal, Form, Input, Select, Row, Col, Tabs, DatePicker } from 'antd';
-import { CheckCircleOutlined, CloseCircleOutlined, ReloadOutlined, DownloadOutlined } from '@ant-design/icons';
+import { Card, Button, Typography, message, Modal, Form, Input, Select, Row, Col, Tabs, DatePicker, Tooltip } from 'antd';
+import { CheckCircleOutlined, CloseCircleOutlined, ReloadOutlined, DownloadOutlined, FileTextOutlined, AppstoreAddOutlined, RocketOutlined } from '@ant-design/icons';
+// FileTextOutlined, AppstoreAddOutlined, RocketOutlined used in per-article modal icons
 import { ApproverTable } from '../components/ApproverTable';
 import type { ApproverItem, MasterAttribute } from '../components/ApproverTable';
+import { ApproverArticleList } from '../components/ApproverArticleList';
 import VariantSubTable from '../components/VariantSubTable';
 import { APP_CONFIG } from '../../../constants/app/config';
 import { SIMPLIFIED_HIERARCHY } from '../../extraction/components/SimplifiedCategorySelector';
-import { getMcCodeByMajorCategory } from '../../../data/majorCategoryMcCodeMap';
+import { getMcCodeByMajorCategory, MAJOR_CATEGORY_ALLOWED_VALUES } from '../../../data/majorCategoryMcCodeMap';
+import { getMajCatAllowedValues, getMajCatMandatoryKeys, SCHEMA_KEY_TO_EXCEL_ATTR } from '../../../data/majCatAttributeMap';
 import { formatDivisionLabel } from '../../../shared/utils/ui/formatters';
 import type { Dayjs } from 'dayjs';
 import { exportToExcel } from '../../../shared/utils/export/extractionExport';
@@ -128,6 +131,48 @@ export const SIMPLE_APPROVER_EXPORT_HEADERS = [
     'Created Date'
 ] as const;
 
+// Complete list of attribute fields with their form name, display label, and schema key
+// Schema key links to getMajCatAllowedValues / getMajCatMandatoryKeys from the Excel data
+const ATTRIBUTE_FIELDS: { formName: string; label: string; schemaKey: string }[] = [
+    { formName: 'macroMvgr',      label: 'Macro MVGR',        schemaKey: 'macro_mvgr' },
+    { formName: 'mainMvgr',       label: 'Main MVGR',         schemaKey: 'main_mvgr' },
+    { formName: 'yarn1',          label: 'Yarn 1',            schemaKey: 'yarn_01' },
+    { formName: 'fabricMainMvgr', label: 'Fabric Main MVGR',  schemaKey: 'fabric_main_mvgr' },
+    { formName: 'weave',          label: 'Weave',             schemaKey: 'weave' },
+    { formName: 'mFab2',          label: 'M FAB 2',           schemaKey: 'm_fab2' },
+    { formName: 'composition',    label: 'Composition',       schemaKey: 'composition' },
+    { formName: 'finish',         label: 'Finish',            schemaKey: 'finish' },
+    { formName: 'gsm',            label: 'GSM',               schemaKey: 'gsm' },
+    { formName: 'weight',         label: 'G-Weight',          schemaKey: 'weight' },
+    { formName: 'lycra',          label: 'Lycra / Non-Lycra', schemaKey: 'lycra_non_lycra' },
+    { formName: 'shade',          label: 'Shade',             schemaKey: 'shade' },
+    { formName: 'pattern',        label: 'Body Style',        schemaKey: 'body_style' },
+    { formName: 'fit',            label: 'Fit',               schemaKey: 'fit' },
+    { formName: 'wash',           label: 'Wash',              schemaKey: 'wash' },
+    { formName: 'neck',           label: 'Neck',              schemaKey: 'neck' },
+    { formName: 'neckDetails',    label: 'Neck Details',      schemaKey: 'neck_details' },
+    { formName: 'collar',         label: 'Collar',            schemaKey: 'collar' },
+    { formName: 'placket',        label: 'Placket',           schemaKey: 'placket' },
+    { formName: 'sleeve',         label: 'Sleeve',            schemaKey: 'sleeve' },
+    { formName: 'length',         label: 'Length',            schemaKey: 'length' },
+    { formName: 'bottomFold',     label: 'Bottom Fold',       schemaKey: 'bottom_fold' },
+    { formName: 'frontOpenStyle', label: 'Front Open Style',  schemaKey: 'front_open_style' },
+    { formName: 'pocketType',     label: 'Pocket Type',       schemaKey: 'pocket_type' },
+    { formName: 'drawcord',       label: 'Drawcord',          schemaKey: 'drawcord' },
+    { formName: 'button',         label: 'Button',            schemaKey: 'button' },
+    { formName: 'zipper',         label: 'Zipper',            schemaKey: 'zipper' },
+    { formName: 'zipColour',      label: 'Zip Colour',        schemaKey: 'zip_colour' },
+    { formName: 'fatherBelt',     label: 'Father Belt',       schemaKey: 'father_belt' },
+    { formName: 'childBelt',      label: 'Child Belt',        schemaKey: 'child_belt' },
+    { formName: 'printType',      label: 'Print Type',        schemaKey: 'print_type' },
+    { formName: 'printStyle',     label: 'Print Style',       schemaKey: 'print_style' },
+    { formName: 'printPlacement', label: 'Print Placement',   schemaKey: 'print_placement' },
+    { formName: 'patches',        label: 'Patches',           schemaKey: 'patches' },
+    { formName: 'patchesType',    label: 'Patches Type',      schemaKey: 'patches_type' },
+    { formName: 'embroidery',     label: 'Embroidery',        schemaKey: 'embroidery' },
+    { formName: 'embroideryType', label: 'Embroidery Type',   schemaKey: 'embroidery_type' },
+];
+
 const PAGE_SIZE = 50;
 
 interface ApproverDashboardProps {
@@ -148,6 +193,7 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
     const [searchText, setSearchText] = useState('');
     const [divisionFilter, setDivisionFilter] = useState<string>('ALL');
     const [subDivisionFilter, setSubDivisionFilter] = useState<string>('ALL');
+    const [majorCategoryFilter, setMajorCategoryFilter] = useState<string>('');
     const [dateRangeFilter, setDateRangeFilter] = useState<[Dayjs | null, Dayjs | null] | null>(null);
 
     // Debounce search — wait 700ms idle AND require at least 3 chars (or empty to reset)
@@ -223,6 +269,7 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
             params.set('status', statusFilter);
             if (divisionFilter !== 'ALL') params.set('division', divisionFilter);
             if (subDivisionFilter !== 'ALL') params.set('subDivision', subDivisionFilter);
+            if (majorCategoryFilter) params.set('majorCategory', majorCategoryFilter);
             if (searchText) params.set('search', searchText);
             if (dateRangeFilter?.[0]) params.set('startDate', dateRangeFilter[0].startOf('day').toISOString());
             if (dateRangeFilter?.[1]) params.set('endDate', dateRangeFilter[1].endOf('day').toISOString());
@@ -354,6 +401,7 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
             params.set('status', statusFilter);
             if (divisionFilter !== 'ALL') params.set('division', divisionFilter);
             if (subDivisionFilter !== 'ALL') params.set('subDivision', subDivisionFilter);
+            if (majorCategoryFilter) params.set('majorCategory', majorCategoryFilter);
             if (searchText) params.set('search', searchText);
             if (dateRangeFilter?.[0]) params.set('startDate', dateRangeFilter[0].startOf('day').toISOString());
             if (dateRangeFilter?.[1]) params.set('endDate', dateRangeFilter[1].endOf('day').toISOString());
@@ -397,8 +445,114 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
         [selectedRowKeys, items]
     );
 
+    // field → schemaKey map for mandatory validation (mirrors ATTRIBUTE_FIELDS in ApproverArticleList)
+    const FIELD_TO_SCHEMA_KEY: Record<string, string> = {
+        macroMvgr: 'macro_mvgr', yarn1: 'yarn_01', mainMvgr: 'main_mvgr',
+        fabricMainMvgr: 'fabric_main_mvgr', weave: 'weave', mFab2: 'm_fab2',
+        composition: 'composition', fCount: 'f_count', fConstruction: 'f_construction',
+        lycra: 'lycra_non_lycra', finish: 'finish', gsm: 'gsm',
+        fOunce: 'f_ounce', fWidth: 'f_width',
+        collar: 'collar', collarStyle: 'collar_style', neckDetails: 'neck_details',
+        neck: 'neck', placket: 'placket', fatherBelt: 'father_belt',
+        sleeve: 'sleeve', sleeveFold: 'sleeve_fold', bottomFold: 'bottom_fold',
+        noOfPocket: 'no_of_pocket', pocketType: 'pocket_type', extraPocket: 'extra_pocket',
+        fit: 'fit', pattern: 'body_style', length: 'length',
+        drawcord: 'drawcord', dcShape: 'dc_shape', button: 'button',
+        btnColour: 'btn_colour', zipper: 'zipper', zipColour: 'zip_colour',
+        patchesType: 'patches_type', patches: 'patches',
+        printType: 'print_type', printStyle: 'print_style', printPlacement: 'print_placement',
+        embroidery: 'embroidery', embroideryType: 'embroidery_type', wash: 'wash',
+    };
+
+    // Reactively check if ALL selected pending items have mandatory fields filled.
+    // Approve button is disabled when any item is missing a required field.
+    const approveBlockedReasons = useMemo(() => {
+        const pendingItems = items.filter(i => pendingSelectedKeys.includes(i.id));
+        const errors: { articleId: string; missing: string[] }[] = [];
+        for (const item of pendingItems) {
+            const missing: string[] = [];
+            if (!item.bodyArticleDescription) missing.push('BODY ARTICLE DESC');
+            if (item.majorCategory) {
+                const mandatoryKeys = getMajCatMandatoryKeys(item.majorCategory);
+                for (const [field, schemaKey] of Object.entries(FIELD_TO_SCHEMA_KEY)) {
+                    if (mandatoryKeys.has(schemaKey) && !(item as any)[field]) {
+                        missing.push(SCHEMA_KEY_TO_EXCEL_ATTR[schemaKey] || schemaKey);
+                    }
+                }
+            }
+            if (missing.length > 0) {
+                errors.push({
+                    articleId: item.sapArticleId || item.articleNumber || item.imageName || item.id,
+                    missing,
+                });
+            }
+        }
+        return errors;
+    }, [pendingSelectedKeys, items]);
+
     const handleApprove = async () => {
         if (pendingSelectedKeys.length === 0) return;
+
+        // Validate mandatory fields for all selected pending items before approving
+        const pendingItems = items.filter(i => pendingSelectedKeys.includes(i.id));
+        const errors: { articleId: string; missing: string[] }[] = [];
+
+        for (const item of pendingItems) {
+            const missing: string[] = [];
+
+            // bodyArticleDescription is mandatory for ALL major categories
+            if (!item.bodyArticleDescription) {
+                missing.push('BODY ARTICLE DESC');
+            }
+
+            if (!item.referenceArticleDescription) {
+                missing.push('REFERENCE ARTICLE DESC');
+            }
+
+            // Check Excel-driven mandatory fields for this major category
+            if (item.majorCategory) {
+                const mandatoryKeys = getMajCatMandatoryKeys(item.majorCategory);
+                for (const [field, schemaKey] of Object.entries(FIELD_TO_SCHEMA_KEY)) {
+                    if (mandatoryKeys.has(schemaKey) && !(item as any)[field]) {
+                        const excelName = SCHEMA_KEY_TO_EXCEL_ATTR[schemaKey] || schemaKey;
+                        missing.push(excelName);
+                    }
+                }
+            }
+
+            if (missing.length > 0) {
+                errors.push({
+                    articleId: item.sapArticleId || item.articleNumber || item.imageName || item.id,
+                    missing,
+                });
+            }
+        }
+
+        if (errors.length > 0) {
+            Modal.error({
+                title: 'Cannot Approve — Mandatory Fields Missing',
+                width: 600,
+                content: (
+                    <div style={{ maxHeight: 400, overflowY: 'auto' }}>
+                        {errors.map(({ articleId, missing }) => (
+                            <div key={articleId} style={{ marginBottom: 12 }}>
+                                <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>{articleId}</div>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                    {missing.map(f => (
+                                        <span key={f} style={{
+                                            background: '#fff1f0', color: '#cf1322',
+                                            border: '1px solid #ffa39e', borderRadius: 3,
+                                            padding: '1px 6px', fontSize: 11,
+                                        }}>{f}</span>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ),
+            });
+            return;
+        }
 
         Modal.confirm({
             title: 'Confirm Approval',
@@ -465,6 +619,81 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
                     message.error('Failed to reject items');
                 }
             }
+        });
+    };
+
+    const handleCreateFabricArticle = (item: ApproverItem) => {
+        Modal.confirm({
+            title: 'Create Fabric Article',
+            icon: <FileTextOutlined style={{ color: '#1677ff' }} />,
+            content: `Create fabric article for article "${item.articleNumber || item.imageName || item.id}"?`,
+            okText: 'Create Fabric Article',
+            okButtonProps: { style: { background: '#1677ff', borderColor: '#1677ff' } },
+            onOk: async () => {
+                try {
+                    const token = localStorage.getItem('authToken');
+                    const response = await fetch(`${APP_CONFIG.api.baseURL}/approver/create-fabric-article`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                        body: JSON.stringify({ ids: [item.id] }),
+                    });
+                    if (!response.ok) throw new Error('Request failed');
+                    message.success('Fabric article creation initiated');
+                    fetchItems(currentPage);
+                } catch {
+                    message.error('Failed to create fabric article');
+                }
+            },
+        });
+    };
+
+    const handleCreateBodyArticle = (item: ApproverItem) => {
+        Modal.confirm({
+            title: 'Create Body Article',
+            icon: <AppstoreAddOutlined style={{ color: '#722ed1' }} />,
+            content: `Create body article for article "${item.articleNumber || item.imageName || item.id}"?`,
+            okText: 'Create Body Article',
+            okButtonProps: { style: { background: '#722ed1', borderColor: '#722ed1' } },
+            onOk: async () => {
+                try {
+                    const token = localStorage.getItem('authToken');
+                    const response = await fetch(`${APP_CONFIG.api.baseURL}/approver/create-body-article`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                        body: JSON.stringify({ ids: [item.id] }),
+                    });
+                    if (!response.ok) throw new Error('Request failed');
+                    message.success('Body article creation initiated');
+                    fetchItems(currentPage);
+                } catch {
+                    message.error('Failed to create body article');
+                }
+            },
+        });
+    };
+
+    const handleProceedFGArticle = (item: ApproverItem) => {
+        Modal.confirm({
+            title: 'Proceed for FG Article Creation',
+            icon: <RocketOutlined style={{ color: '#f59e0b' }} />,
+            content: `Proceed with FG article creation for article "${item.articleNumber || item.imageName || item.id}"?`,
+            okText: 'Proceed',
+            okButtonProps: { style: { background: '#f59e0b', borderColor: '#f59e0b', color: '#fff' } },
+            onOk: async () => {
+                try {
+                    const token = localStorage.getItem('authToken');
+                    const response = await fetch(`${APP_CONFIG.api.baseURL}/approver/proceed-fg-article`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                        body: JSON.stringify({ ids: [item.id] }),
+                    });
+                    if (!response.ok) throw new Error('Request failed');
+                    message.success('FG article creation initiated');
+                    fetchItems(currentPage);
+                } catch {
+                    message.error('Failed to proceed with FG article creation');
+                }
+            },
         });
     };
 
@@ -664,7 +893,7 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
                 </Form.Item>
             </Col>
             <Col span={12}>
-                <Form.Item name="referenceArticleDescription" label="Ref. Description">
+                <Form.Item name="referenceArticleDescription" label="Ref. Description" rules={[{ required: true, message: 'Reference Article Description is required' }]}>
                     <Input />
                 </Form.Item>
             </Col>
@@ -706,78 +935,75 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
         </Row>
     );
 
-    const attributesTab = (
-        <Row gutter={16} style={{ maxHeight: '60vh', overflowY: 'auto' }}>
-            <Col span={24}><Typography.Title level={5}>Fabric Details</Typography.Title></Col>
-            <Col span={8}>
-                <Form.Item name="macroMvgr" label="Macro MVGR">
-                    <Select showSearch allowClear optionFilterProp="children" placeholder="Select...">
-                        {attributes.find(a => a.key === 'MACRO_MVGR')?.allowedValues?.map(v => (
-                            <Option key={v.shortForm} value={v.shortForm}>{v.shortForm}</Option>
-                        ))}
-                    </Select>
-                </Form.Item>
-            </Col>
-            <Col span={8}>
-                <Form.Item name="mainMvgr" label="Main MVGR">
-                    <Select showSearch allowClear optionFilterProp="children" placeholder="Select...">
-                        {attributes.find(a => a.key === 'MAIN_MVGR')?.allowedValues?.map(v => (
-                            <Option key={v.shortForm} value={v.shortForm}>{v.shortForm}</Option>
-                        ))}
-                    </Select>
-                </Form.Item>
-            </Col>
-            <Col span={8}><Form.Item name="yarn1" label="Yarn 1"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item name="fabricMainMvgr" label="Fabric Main MVGR"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item name="weave" label="Weave"><Input /></Form.Item></Col>
-            <Col span={8}>
-                <Form.Item name="mFab2" label="M FAB 2">
-                    <Select showSearch allowClear optionFilterProp="children" placeholder="Select...">
-                        {attributes.find(a => a.key === 'M_FAB2')?.allowedValues?.map(v => (
-                            <Option key={v.shortForm} value={v.shortForm}>{v.shortForm}</Option>
-                        ))}
-                    </Select>
-                </Form.Item>
-            </Col>
-            <Col span={8}><Form.Item name="composition" label="Composition"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item name="finish" label="Finish"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item name="gsm" label="GSM"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item name="weight" label="G-Weight"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item name="lycra" label="Lycra"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item name="shade" label="Shade"><Input /></Form.Item></Col>
+    // Dynamic attributes tab — shows only the attributes relevant for the selected major category.
+    // Values are filtered from the Excel grid data. Mandatory fields are marked with *.
+    const attributesTab = (() => {
+        const majorCat = editingItem?.majorCategory || '';
+        const mandatoryKeys = getMajCatMandatoryKeys(majorCat);
 
-            <Col span={24}><Typography.Title level={5}>Styling & Design</Typography.Title></Col>
-            <Col span={8}><Form.Item name="pattern" label="Pattern"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item name="fit" label="Fit"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item name="wash" label="Wash"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item name="neck" label="Neck"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item name="neckDetails" label="Neck Details"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item name="collar" label="Collar"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item name="placket" label="Placket"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item name="sleeve" label="Sleeve"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item name="length" label="Length"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item name="bottomFold" label="Bottom Fold"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item name="frontOpenStyle" label="Front Open"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item name="pocketType" label="Pocket"><Input /></Form.Item></Col>
+        const visibleFields = ATTRIBUTE_FIELDS.filter(field => {
+            if (!majorCat) return true; // no category selected → show all
+            const values = getMajCatAllowedValues(majorCat, field.schemaKey);
+            return values !== null || mandatoryKeys.has(field.schemaKey);
+        });
 
-            <Col span={24}><Typography.Title level={5}>Trims & Closure</Typography.Title></Col>
-            <Col span={8}><Form.Item name="drawcord" label="Drawcord"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item name="button" label="Button"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item name="zipper" label="Zipper"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item name="zipColour" label="Zip Color"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item name="fatherBelt" label="Father Belt"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item name="childBelt" label="Child Belt"><Input /></Form.Item></Col>
+        if (visibleFields.length === 0) {
+            return (
+                <div style={{ padding: 24, textAlign: 'center', color: '#8c8c8c' }}>
+                    No attributes defined for this major category.
+                </div>
+            );
+        }
 
-            <Col span={24}><Typography.Title level={5}>Embellishments</Typography.Title></Col>
-            <Col span={8}><Form.Item name="printType" label="Print Type"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item name="printStyle" label="Print Style"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item name="printPlacement" label="Print Placement"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item name="patches" label="Patches"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item name="patchesType" label="Patch Type"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item name="embroidery" label="Embroidery"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item name="embroideryType" label="Embroidery Type"><Input /></Form.Item></Col>
-        </Row>
-    );
+        return (
+            <div style={{ maxHeight: '60vh', overflowY: 'auto', paddingRight: 4 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <tbody>
+                        {visibleFields.map(field => {
+                            const values = majorCat ? getMajCatAllowedValues(majorCat, field.schemaKey) : null;
+                            const isMandatory = mandatoryKeys.has(field.schemaKey);
+                            return (
+                                <tr key={field.formName} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                                    <td style={{
+                                        padding: '6px 12px 6px 0',
+                                        width: 180,
+                                        verticalAlign: 'middle',
+                                        fontSize: 13,
+                                        fontWeight: isMandatory ? 600 : 400,
+                                        color: isMandatory ? '#1f1f1f' : '#595959',
+                                        whiteSpace: 'nowrap',
+                                    }}>
+                                        {isMandatory && <span style={{ color: '#ff4d4f', marginRight: 4 }}>*</span>}
+                                        {field.label}
+                                    </td>
+                                    <td style={{ padding: '4px 0' }}>
+                                        <Form.Item name={field.formName} style={{ margin: 0 }}>
+                                            {values ? (
+                                                <Select
+                                                    showSearch
+                                                    allowClear
+                                                    size="small"
+                                                    style={{ width: '100%' }}
+                                                    placeholder="Select..."
+                                                    optionFilterProp="children"
+                                                >
+                                                    {values.map(v => (
+                                                        <Option key={v.shortForm} value={v.shortForm}>{v.shortForm}</Option>
+                                                    ))}
+                                                </Select>
+                                            ) : (
+                                                <Input size="small" placeholder="Enter value..." />
+                                            )}
+                                        </Form.Item>
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
+        );
+    })();
 
     const businessTab = (
         <Row gutter={16}>
@@ -869,7 +1095,7 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
                             {(showSubDivisionFilter || user?.role === 'ADMIN') && (
                                 <Col xs={12} sm={6} md={4}>
                                     <Select style={{ width: '100%' }} placeholder="Sub-Division" value={subDivisionFilter}
-                                        onChange={setSubDivisionFilter} showSearch>
+                                        onChange={(val) => { setSubDivisionFilter(val); setMajorCategoryFilter(''); }} showSearch>
                                         <Option value="ALL">All Sub-Divs</Option>
                                         {user?.role === 'ADMIN'
                                             ? (getSubDivisionOptions(divisionFilter === 'ALL' ? undefined : divisionFilter).length > 0
@@ -880,6 +1106,29 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
                                     </Select>
                                 </Col>
                             )}
+                            {/* Major Category single-select */}
+                            <Col xs={12} sm={6} md={4}>
+                                <Select
+                                    style={{ width: '100%' }}
+                                    placeholder="Major Category"
+                                    value={majorCategoryFilter || undefined}
+                                    onChange={(val) => setMajorCategoryFilter(val ?? '')}
+                                    showSearch
+                                    allowClear
+                                    optionFilterProp="children"
+                                >
+                                    {(() => {
+                                        const div = divisionFilter === 'ALL' ? '' : divisionFilter;
+                                        let prefixRegex: RegExp | null = null;
+                                        if (div.match(/MEN/i)) prefixRegex = /^M|^MW/i;
+                                        else if (div.match(/LADIES|WOMEN/i)) prefixRegex = /^L|^LW/i;
+                                        else if (div.match(/KIDS/i)) prefixRegex = /^(K|I|J|Y|G)/i;
+                                        return MAJOR_CATEGORY_ALLOWED_VALUES
+                                            .filter(v => !prefixRegex || v.shortForm.match(prefixRegex))
+                                            .map(v => <Option key={v.shortForm} value={v.shortForm}>{v.shortForm}</Option>);
+                                    })()}
+                                </Select>
+                            </Col>
                             <Col xs={24} sm={12} md={5}>
                                 <RangePicker style={{ width: '100%' }} value={dateRangeFilter}
                                     onChange={(dates) => setDateRangeFilter(dates)}
@@ -890,134 +1139,110 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
                     </div>
 
                     {/* Action row */}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 16px', background: '#fafafa' }}>
-                        <span style={{ fontSize: 12, color: '#6366f1', fontWeight: 600 }}>
-                            {totalCount.toLocaleString()} records
-                            {selectedRowKeys.length > 0 && <span style={{ color: '#f59e0b', marginLeft: 8 }}>· {selectedRowKeys.length} selected</span>}
-                        </span>
-                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                            <Button size="small" icon={<ReloadOutlined />} onClick={() => fetchItems(currentPage)}>Refresh</Button>
-                            <Button size="small" icon={<DownloadOutlined />} onClick={handleExportSelected} disabled={selectedRowKeys.length === 0}>
-                                Export Selected
-                            </Button>
-                            <Button size="small" icon={<DownloadOutlined />} onClick={handleExportAll} loading={exportingAll}
-                                style={{ background: 'linear-gradient(90deg,#6366f1,#818cf8)', color: '#fff', border: 'none', fontWeight: 600 }}>
-                                Export All ({totalCount})
-                            </Button>
-                            <Button size="small" danger icon={<CloseCircleOutlined />} onClick={handleReject} disabled={pendingSelectedKeys.length === 0}>
-                                Reject ({pendingSelectedKeys.length})
-                            </Button>
-                            <Button size="small" icon={<CheckCircleOutlined />} onClick={handleApprove} disabled={pendingSelectedKeys.length === 0}
-                                style={pendingSelectedKeys.length > 0 ? { background: 'linear-gradient(90deg,#10b981,#34d399)', color: '#fff', border: 'none', fontWeight: 600 } : {}}>
-                                Approve ({pendingSelectedKeys.length})
-                            </Button>
+                    <div style={{ padding: '8px 16px', background: '#fafafa', borderTop: '1px solid #f0f0f0' }}>
+                        {/* Row 1: counts + standard actions */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                            <span style={{ fontSize: 12, color: '#6366f1', fontWeight: 600 }}>
+                                {totalCount.toLocaleString()} records
+                                {selectedRowKeys.length > 0 && <span style={{ color: '#f59e0b', marginLeft: 8 }}>· {selectedRowKeys.length} selected</span>}
+                            </span>
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                                <Button size="small" icon={<ReloadOutlined />} onClick={() => fetchItems(currentPage)}>Refresh</Button>
+                                <Button size="small" icon={<DownloadOutlined />} onClick={handleExportSelected} disabled={selectedRowKeys.length === 0}>
+                                    Export Selected
+                                </Button>
+                                <Button size="small" icon={<DownloadOutlined />} onClick={handleExportAll} loading={exportingAll}
+                                    style={{ background: 'linear-gradient(90deg,#6366f1,#818cf8)', color: '#fff', border: 'none', fontWeight: 600 }}>
+                                    Export All ({totalCount})
+                                </Button>
+                                <Button size="small" danger icon={<CloseCircleOutlined />} onClick={handleReject} disabled={pendingSelectedKeys.length === 0}>
+                                    Reject ({pendingSelectedKeys.length})
+                                </Button>
+                                <Tooltip
+                                    title={approveBlockedReasons.length > 0 ? (
+                                        <div>
+                                            <div style={{ fontWeight: 600, marginBottom: 4 }}>Fill required fields first:</div>
+                                            {approveBlockedReasons.slice(0, 3).map(({ articleId, missing }) => (
+                                                <div key={articleId} style={{ marginBottom: 4 }}>
+                                                    <span style={{ fontWeight: 500 }}>{articleId}: </span>
+                                                    {missing.slice(0, 3).join(', ')}{missing.length > 3 ? ` +${missing.length - 3} more` : ''}
+                                                </div>
+                                            ))}
+                                            {approveBlockedReasons.length > 3 && <div>...and {approveBlockedReasons.length - 3} more articles</div>}
+                                        </div>
+                                    ) : ''}
+                                >
+                                    <Button
+                                        size="small"
+                                        icon={<CheckCircleOutlined />}
+                                        onClick={handleApprove}
+                                        disabled={pendingSelectedKeys.length === 0 || approveBlockedReasons.length > 0}
+                                        style={pendingSelectedKeys.length > 0 && approveBlockedReasons.length === 0
+                                            ? { background: 'linear-gradient(90deg,#10b981,#34d399)', color: '#fff', border: 'none', fontWeight: 600 }
+                                            : {}}
+                                    >
+                                        Approve ({pendingSelectedKeys.length})
+                                        {approveBlockedReasons.length > 0 && <span style={{ marginLeft: 4, fontSize: 10, color: '#ff4d4f' }}>⚠ {approveBlockedReasons.length} incomplete</span>}
+                                    </Button>
+                                </Tooltip>
+                            </div>
                         </div>
+
                     </div>
                 </div>
             </div>
 
-            <Card
-                variant="borderless"
-                className="shadow-sm"
-                style={{ marginTop: 6 }}
-                styles={{ body: { padding: '6px 8px' } }}
-            >
-                    <ApproverTable
-                        items={items}
-                        loading={loading}
-                        selectedRowKeys={selectedRowKeys}
-                        onSelectionChange={setSelectedRowKeys}
-                        onEdit={handleEdit}
-                        attributes={attributes}
-                        user={user}
-                        expandable={pathType !== 'old' ? {
-                            expandedRowRender: (record) => (
-                                <VariantSubTable
-                                    genericId={record.id}
-                                    genericRecord={record}
-                                    onRefresh={() => fetchItems(currentPage)}
-                                    attributes={attributes}
-                                />
-                            ),
-                            expandRowByClick: false,
-                            rowExpandable: () => true,
-                            expandIcon: ({ expanded, onExpand, record }) => (
-                                <button
-                                    onClick={e => onExpand(record, e)}
-                                    style={{
-                                        width: 24, height: 24, cursor: 'pointer',
-                                        border: '2px solid #1890ff', borderRadius: 4,
-                                        background: expanded ? '#1890ff' : '#e6f4ff',
-                                        color: expanded ? '#fff' : '#1890ff',
-                                        fontWeight: 'bold', fontSize: 16,
-                                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                                        padding: 0, lineHeight: 1,
-                                    }}
-                                >
-                                    {expanded ? '−' : '+'}
-                                </button>
-                            ),
-                        } : undefined}
-                        serverPagination={{
-                            total: totalCount,
-                            current: currentPage,
-                            pageSize: PAGE_SIZE,
-                            onChange: (page) => {
-                                setSelectedRowKeys([]);
-                                fetchItems(page);
-                            }
-                        }}
-                        onSave={async (row) => {
-                        // Optimistic update
+            <div style={{ marginTop: 6 }}>
+                <ApproverArticleList
+                    items={items}
+                    majorCategory={majorCategoryFilter}
+                    loading={loading}
+                    selectedRowKeys={selectedRowKeys}
+                    onSelectionChange={setSelectedRowKeys}
+                    onEdit={handleEdit}
+                    onCreateFabricArticle={handleCreateFabricArticle}
+                    onCreateBodyArticle={handleCreateBodyArticle}
+                    onProceedFGArticle={handleProceedFGArticle}
+                    serverPagination={{
+                        total: totalCount,
+                        current: currentPage,
+                        pageSize: PAGE_SIZE,
+                        onChange: (page) => { setSelectedRowKeys([]); fetchItems(page); }
+                    }}
+                    onSave={async (row) => {
                         const newData = [...items];
                         const index = newData.findIndex((item) => item.id === row.id);
                         let updatePayload: Record<string, unknown> = {};
                         if (index > -1) {
                             const item = newData[index];
-
-                            // Auto-fill mcCode based on majorCategory
                             if (row.majorCategory && (row.majorCategory !== item.majorCategory || !row.mcCode)) {
                                 row.mcCode = inferMcCode(row.majorCategory) || row.mcCode;
                             }
-
-                            newData.splice(index, 1, {
-                                ...item,
-                                ...row,
-                            });
+                            newData.splice(index, 1, { ...item, ...row });
                             setItems(newData);
-
                             updatePayload = Object.fromEntries(
                                 Object.entries(row)
                                     .filter(([key, value]) => (item as any)[key] !== value)
                                     .map(([key, value]) => [key, value === undefined ? null : value])
                             );
                         }
-
-                        if (Object.keys(updatePayload).length === 0) {
-                            message.info('No changes to save');
-                            return;
-                        }
-
-                        // API Update
+                        if (Object.keys(updatePayload).length === 0) return;
                         try {
                             const token = localStorage.getItem('authToken');
                             const response = await fetch(`${APP_CONFIG.api.baseURL}/approver/items/${row.id}`, {
                                 method: 'PUT',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'Authorization': `Bearer ${token}`
-                                },
+                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                                 body: JSON.stringify(updatePayload)
                             });
                             if (!response.ok) throw new Error('Update failed');
-                            message.success('Updated');
-                        } catch (error) {
-                            message.error('Failed to update');
-                            fetchItems(currentPage); // Revert on failure
+                            message.success('Saved');
+                        } catch {
+                            message.error('Failed to save');
+                            fetchItems(currentPage);
                         }
-                        }}
-                    />
-            </Card>
+                    }}
+                />
+            </div>
 
             <Modal
                 title="Edit Article Details"

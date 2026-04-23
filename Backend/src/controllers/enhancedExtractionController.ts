@@ -14,6 +14,7 @@ import { getSegmentByCategoryAndMrp } from '../utils/segmentRangeMapper';
 import { buildArticleDescription } from '../utils/articleDescriptionBuilder';
 import { duplicateForKidsDivision } from '../services/kidsDivisionDuplicationService';
 import { createVariantsForGeneric } from '../services/variantCreationService';
+import { mirror360FlatUpdate } from '../utils/mirror360Flat';
 
 export class EnhancedExtractionController {
   private vlmService = new VLMService();
@@ -348,6 +349,7 @@ export class EnhancedExtractionController {
           if (Object.keys(directFill).length > 0) {
             await prisma.extractionResultFlat.update({ where: { id: flatId }, data: directFill });
             console.log(`✅ Direct gsm/weight backfill for flat row ${flatId}:`, directFill);
+            void mirror360FlatUpdate(flatId, directFill);
           }
         }
       } catch (flatError) {
@@ -400,6 +402,7 @@ export class EnhancedExtractionController {
             where: { id: flatId },
             data: overrides,
           });
+          void mirror360FlatUpdate(flatId, overrides);
           console.log(`✅ Watcher fields + derived fields applied to flat row ${flatId}`);
 
           // ── Step 4: Segment + Article Description (need the updated row values) ──
@@ -436,6 +439,7 @@ export class EnhancedExtractionController {
                 where: { id: flatId },
                 data: derivedStep2,
               });
+              void mirror360FlatUpdate(flatId, derivedStep2);
               console.log(`✅ Segment + article description computed for flat row ${flatId}`);
             }
           }

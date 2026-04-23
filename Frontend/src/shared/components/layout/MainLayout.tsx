@@ -186,7 +186,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         <div className="top-nav-left">
           <div className="brand" onClick={() => navigate('/dashboard')}>
             <GlobalOutlined />
-            <span>AI Fashion</span>
+            <span>360 Article Creation</span>
           </div>
 
           {!isLandingPage && !isMobile && (

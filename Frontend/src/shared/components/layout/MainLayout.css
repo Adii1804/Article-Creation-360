@@ -87,7 +87,9 @@
   padding: 24px;
   background: #F6F1EC;
   border-radius: 16px;
-  min-height: calc(100vh - 112px);
+  height: calc(100vh - 112px);
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .content-landing {
