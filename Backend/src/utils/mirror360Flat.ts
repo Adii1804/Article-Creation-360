@@ -2,26 +2,46 @@ import { prismaClient as prisma } from './prisma';
 
 /** Maps camelCase approver/extraction fields to 360article.article_360_flat columns */
 export const FIELD_TO_360_COL: Record<string, string> = {
+    // Identity / header
     articleNumber:               'article_number',
     sapArticleId:                'sap_article_id',
+    imageUrl:                    'image_url',
+
+    // Division / category
     division:                    'division',
     subDivision:                 'sub_division',
     majorCategory:               'major_category',
+    mcCode:                      'mc_code',
+    pptNumber:                   'ppt_number',
+
+    // Vendor / design
     designNumber:                'design_number',
     vendorName:                  'vendor_name',
     vendorCode:                  'vendor_code',
+
+    // Reference
     referenceArticleNumber:      'reference_article_number',
     referenceArticleDescription: 'reference_article_description',
-    mcCode:                      'mc_code',
+
+    // Pricing
     rate:                        'rate',
     mrp:                         'mrp',
+
+    // Important attribute
     impAtrbt2:                   'imp_atrbt_2',
+
+    // Fabric
     macroMvgr:                   'macro_mvgr',
     yarn1:                       'yarn_1',
+    yarn2:                       'yarn_2',
     mainMvgr:                    'main_mvgr',
     fabricMainMvgr:              'fabric_main_mvgr',
     weave:                       'weave',
+    weaveFullForm:               'weave_full_form',
     mFab2:                       'm_fab2',
+    mFab2FullForm:               'm_fab2_full_form',
+    macroMvgrFullForm:           'macro_mvgr_full_form',
+    mainMvgrFullForm:            'main_mvgr_full_form',
     composition:                 'composition',
     fCount:                      'f_count',
     fConstruction:               'f_construction',
@@ -30,21 +50,31 @@ export const FIELD_TO_360_COL: Record<string, string> = {
     gsm:                         'gsm',
     fOunce:                      'f_ounce',
     fWidth:                      'f_width',
+    shade:                       'shade',
+    weight:                      'weight',
+    size:                        'size',
+    colour:                      'colour',
+
+    // Body
     collar:                      'collar',
     collarStyle:                 'collar_style',
     neck:                        'neck',
     neckDetails:                 'neck_details',
     placket:                     'placket',
     fatherBelt:                  'father_belt',
+    childBelt:                   'child_belt',
     sleeve:                      'sleeve',
     sleeveFold:                  'sleeve_fold',
     bottomFold:                  'bottom_fold',
+    frontOpenStyle:              'front_open_style',
     noOfPocket:                  'no_of_pocket',
     pocketType:                  'pocket_type',
     extraPocket:                 'extra_pocket',
     fit:                         'fit',
     pattern:                     'body_style',
     length:                      'length',
+
+    // VA Accessories
     drawcord:                    'drawcord',
     dcShape:                     'dc_shape',
     button:                      'button',
@@ -53,16 +83,52 @@ export const FIELD_TO_360_COL: Record<string, string> = {
     zipColour:                   'zip_colour',
     patches:                     'patches',
     patchesType:                 'patches_type',
+
+    // VA Processing
     printType:                   'print_type',
     printStyle:                  'print_style',
     printPlacement:              'print_placement',
     embroidery:                  'embroidery',
     embroideryType:              'embroidery_type',
     wash:                        'wash',
+
+    // Business / derived
+    segment:                     'segment',
+    season:                      'season',
+    hsnTaxCode:                  'hsn_tax_code',
+    articleDescription:          'article_description',
+    fashionGrid:                 'fashion_grid',
+    year:                        'year',
+    articleType:                 'article_type',
+
+    // Approval workflow
     approvalStatus:              'approval_status',
+    approvedBy:                  'approved_by',
+    approvedAt:                  'approved_at',
     sapSyncStatus:               'sap_sync_status',
     sapSyncMessage:              'sap_sync_message',
-    imageUrl:                    'image_url',
+
+    // Watcher / source
+    source:                      'source',
+    imageUncPath:                'image_unc_path',
+
+    // Variants
+    isGeneric:                   'is_generic',
+    genericArticleId:            'generic_article_id',
+    variantSize:                 'variant_size',
+    variantColor:                'variant_color',
+
+    // AI metrics
+    aiModel:                     'ai_model',
+    avgConfidence:               'avg_confidence',
+    processingTimeMs:            'processing_time_ms',
+    totalAttributes:             'total_attributes',
+    extractedCount:              'extracted_count',
+    inputTokens:                 'input_tokens',
+    outputTokens:                'output_tokens',
+    totalTokens:                 'total_tokens',
+    apiCost:                     'api_cost',
+    extractionDate:              'extraction_date',
 };
 
 /** Extra camelCase fields not in FIELD_TO_360_COL that map to 360article columns */

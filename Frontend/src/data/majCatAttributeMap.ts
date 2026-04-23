@@ -119,9 +119,63 @@ export const SAP_NAME_TO_SCHEMA_KEY: Record<string, string> = {
 // Import the Excel-parsed data
 import majCatData from './maj-cat-attribute-values.json';
 import majCatMandatory from './maj-cat-mandatory.json';
+import { MAJOR_CATEGORY_ALLOWED_VALUES } from './majorCategoryMap';
 
 const data = majCatData as Record<string, Record<string, string[]>>;
 const mandatoryData = majCatMandatory as Record<string, string[]>;
+
+// Reverse map: normalized fullForm → shortForm
+const fullFormToShortCode = new Map<string, string>(
+  MAJOR_CATEGORY_ALLOWED_VALUES.map(({ shortForm, fullForm }) => [
+    fullForm.trim().toUpperCase(),
+    shortForm,
+  ])
+);
+
+// Division-prefix heuristic: which shortCode prefixes correspond to which divisions
+const DIVISION_PREFIXES: Record<string, string[]> = {
+  MENS:   ['M_', 'MW_'],
+  LADIES: ['L_', 'LW_'],
+  KIDS:   ['JB_', 'JG_', 'JBW_', 'JGW_', 'YB_', 'YG_', 'YBW_', 'YGW_', 'IB_', 'IG_', 'IBW_', 'IGW_'],
+};
+
+/**
+ * Normalizes a raw majorCategory (which may be a full-form name like "TEES HALF SLEEVE"
+ * or already a short code like "M_TEES_HS") to its short code.
+ * Falls back to the raw value if no match is found.
+ */
+export function normalizeMajorCategory(raw: string, division?: string | null): string {
+  if (!raw) return raw;
+  // 1. Already a valid short code
+  if (data[raw]) return raw;
+
+  const upper = raw.trim().toUpperCase();
+
+  // 2. Exact full-form match
+  const exact = fullFormToShortCode.get(upper);
+  if (exact) return exact;
+
+  // 3. Suffix match: find all entries whose fullForm ends with raw
+  const suffixMatches = MAJOR_CATEGORY_ALLOWED_VALUES.filter(({ fullForm }) =>
+    fullForm.trim().toUpperCase().endsWith(upper)
+  );
+
+  if (suffixMatches.length === 0) return raw;
+  if (suffixMatches.length === 1) return suffixMatches[0].shortForm;
+
+  // 4. Disambiguate using division
+  const divUpper = (division || '').trim().toUpperCase();
+  const prefixes = DIVISION_PREFIXES[divUpper];
+  if (prefixes) {
+    const filtered = suffixMatches.filter(({ shortForm }) =>
+      prefixes.some((p) => shortForm.startsWith(p))
+    );
+    if (filtered.length === 1) return filtered[0].shortForm;
+    if (filtered.length > 1) return filtered[0].shortForm; // best guess
+  }
+
+  return suffixMatches[0].shortForm; // fallback: first suffix match
+}
 
 /**
  * Returns the allowed values (shortForm/fullForm pairs) for a given schema key

@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { Checkbox, Tag, Select, Input, Spin, Button } from 'antd';
 import { FileTextOutlined, AppstoreAddOutlined, RocketOutlined } from '@ant-design/icons';
 import type { ApproverItem } from './ApproverTable';
-import { getMajCatAllowedValues, getMajCatMandatoryKeys, SCHEMA_KEY_TO_EXCEL_ATTR } from '../../../data/majCatAttributeMap';
+import { getMajCatAllowedValues, getMajCatMandatoryKeys, SCHEMA_KEY_TO_EXCEL_ATTR, normalizeMajorCategory } from '../../../data/majCatAttributeMap';
 import { getImageUrl } from '../../../shared/utils/common/helpers';
 import { APP_CONFIG } from '../../../constants/app/config';
 import { formatDivisionLabel } from '../../../shared/utils/ui/formatters';
@@ -132,19 +132,24 @@ const ArticleCard = React.memo(({
     onCreateBodyArticle: (item: ApproverItem) => void;
     onProceedFGArticle: (item: ApproverItem) => void;
 }) => {
+    // Normalize majorCategory: convert full-form names (e.g. "TEES HALF SLEEVE") to short codes (e.g. "M_TEES_HS")
+    const effectiveMajCat = useMemo(
+        () => normalizeMajorCategory(item.majorCategory || '', item.division),
+        [item.majorCategory, item.division]
+    );
+
     // Compute attributes per-card from this article's own majorCategory
     const { visibleAttrs, mandatoryKeys } = useMemo(() => {
-        const majorCategory = item.majorCategory || '';
-        if (!majorCategory) return { visibleAttrs: [], mandatoryKeys: new Set<string>() };
-        const mandatory = getMajCatMandatoryKeys(majorCategory);
+        if (!effectiveMajCat) return { visibleAttrs: [], mandatoryKeys: new Set<string>() };
+        const mandatory = getMajCatMandatoryKeys(effectiveMajCat);
         const visible = ATTRIBUTE_FIELDS
             .map(af => {
-                const values = getMajCatAllowedValues(majorCategory, af.schemaKey);
+                const values = getMajCatAllowedValues(effectiveMajCat, af.schemaKey);
                 return values ? { field: af.field, label: af.label, schemaKey: af.schemaKey, group: af.group, groupColor: af.groupColor, values } : null;
             })
             .filter((af): af is NonNullable<typeof af> => af !== null);
         return { visibleAttrs: visible, mandatoryKeys: mandatory };
-    }, [item.majorCategory]);
+    }, [effectiveMajCat]);
     const [editingField, setEditingField] = useState<string | null>(null);
     // Per-attribute manual overrides for Art # (user-editable)
     const [attrArticleNums, setAttrArticleNums] = useState<Record<string, string>>(() => {
@@ -155,17 +160,16 @@ const ArticleCard = React.memo(({
     const bomFetchedFor = useRef<string>('');
 
     useEffect(() => {
-        const majCat = item.majorCategory;
-        if (!majCat || bomFetchedFor.current === majCat) return;
-        bomFetchedFor.current = majCat;
+        if (!effectiveMajCat || bomFetchedFor.current === effectiveMajCat) return;
+        bomFetchedFor.current = effectiveMajCat;
         const token = localStorage.getItem('authToken');
-        fetch(`${APP_CONFIG.api.baseURL}/approver/bom-art-numbers/${encodeURIComponent(majCat)}`, {
+        fetch(`${APP_CONFIG.api.baseURL}/approver/bom-art-numbers/${encodeURIComponent(effectiveMajCat)}`, {
             headers: token ? { Authorization: `Bearer ${token}` } : {}
         })
             .then(r => r.json())
             .then(res => { if (res?.data) setBomMap(res.data); })
             .catch(() => {});
-    }, [item.majorCategory]);
+    }, [effectiveMajCat]);
 
     // Compute Art # for a field: auto-lookup from bomMap, fallback to manual override
     const getArtNum = useCallback((schemaKey: string, field: string, currentValue: string | null): string => {
@@ -366,7 +370,7 @@ const ArticleCard = React.memo(({
                         <span style={{ fontSize: 11, color: '#595959', marginLeft: 'auto' }}>
                             {[item.designNumber && `Design: ${item.designNumber}`, item.vendorName].filter(Boolean).join('  ·  ')}
                             {item.rate != null && `  ·  ₹${item.rate}`}
-                            {item.mrp != null && ` / ₹${item.mrp}`}
+                            {item.mrp != null && Number(item.mrp) > 1 && ` / ₹${item.mrp}`}
                         </span>
                     </div>
 
@@ -380,6 +384,8 @@ const ArticleCard = React.memo(({
                         ] as { label: string; field: string; bold: boolean; color: string; editable: boolean }[]).map(({ label, field, bold, color, editable }, i) => {
                             const value = field === 'articleNumber'
                                 ? (item.sapArticleId || (item as any)[field])
+                                : field === 'majorCategory'
+                                ? effectiveMajCat || (item as any)[field]
                                 : (item as any)[field];
                             const displayVal = localValues[field] !== undefined ? localValues[field] : value;
                             const isEditingThis = editingField === `hdr_${field}`;
@@ -727,7 +733,7 @@ const ArticleCard = React.memo(({
                     );
                 })() : (
                     <div style={{ padding: '12px 16px', color: '#8c8c8c', fontSize: 12 }}>
-                        {item.majorCategory ? `No attributes defined for ${item.majorCategory}` : 'No major category set.'}
+                        {effectiveMajCat ? `No attributes defined for ${effectiveMajCat}` : 'No major category set.'}
                     </div>
                 )}
 

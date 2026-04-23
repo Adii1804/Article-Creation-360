@@ -5,6 +5,7 @@ import { mvgrMappingService } from './mvgrMappingService';
 import { buildArticleDescription } from '../utils/articleDescriptionBuilder';
 import { getSegmentByCategoryAndMrp } from '../utils/segmentRangeMapper';
 import { normalizeVendorCode } from '../utils/vendorCode';
+import { upsert360ArticleFlatRow } from '../utils/mirror360Flat';
 
 function getCurrentSeasonCode(): string {
     const month = new Date().getMonth() + 1;
@@ -56,18 +57,14 @@ export class FlatteningService {
         const flatData = this.mapToFlatStructure(job, existingFlat?.vendorCode || null);
 
         // Upsert to flat table (create or update)
-        await prisma.extractionResultFlat.upsert({
+        const flatRecord = await prisma.extractionResultFlat.upsert({
             where: { jobId },
             create: flatData,
             update: flatData
         });
 
-        // Mirror to 360article.article_360_flat
-        try {
-            await this.upsertTo360ArticleFlat(flatData);
-        } catch (err) {
-            console.error(`⚠️  360article flat upsert failed for job ${jobId}:`, err);
-        }
+        // Mirror to 360article.article_360_flat (fire-and-forget)
+        void upsert360ArticleFlatRow(flatRecord.id, { ...flatData, jobId });
 
         console.log(`✅ Flattened extraction job ${jobId}`);
     }
@@ -107,8 +104,7 @@ export class FlatteningService {
             ?? job.costPrice
         );
         const explicitMrp = parseNumericValue(resultsMap.get('mrp'));
-        // MRP defaults to 1 when not explicitly extracted — user sets it manually.
-        const finalMrp = explicitMrp ?? 1;
+        const finalMrp = (explicitMrp != null && explicitMrp > 1) ? explicitMrp : null;
 
         const rawMajorCategory = resultsMap.get('major_category') || job.category?.code;
         const mappedMcCode = getMcCodeByMajorCategory(rawMajorCategory);
