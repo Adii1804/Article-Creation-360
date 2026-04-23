@@ -87,7 +87,8 @@ export const SAP_NAME_TO_SCHEMA_KEY: Record<string, string> = {
   M_SLEEVES_MAIN_STYLE:'sleeve',
   M_SLEEVE_FOLD:       'sleeve_fold',
   M_BTM_FOLD:          'bottom_fold',
-  NO_OF_POCKET:        'no_of_pocket',
+  NO_OF_POCKET:        'no_of_pocket',   // legacy key
+  M_NO_OF_POCKET:      'no_of_pocket',   // new SAP code (Excel updated)
   M_POCKET:            'pocket_type',
   M_EXTRA_POCKET:      'extra_pocket',
   M_FIT:               'fit',
