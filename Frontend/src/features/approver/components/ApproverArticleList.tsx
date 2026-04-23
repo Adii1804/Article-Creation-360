@@ -13,7 +13,8 @@ const { Option } = Select;
 const f = (schemaKey: string) => SCHEMA_KEY_TO_EXCEL_ATTR[schemaKey] ?? schemaKey;
 
 // Attributes grouped exactly as in the Excel mandatory grid (4 groups)
-const ATTRIBUTE_GROUPS: { group: string; color: string; fields: { field: string; schemaKey: string }[] }[] = [
+// freeText: true → renders as text input and is always visible (no dropdown/allowedValues check)
+const ATTRIBUTE_GROUPS: { group: string; color: string; fields: { field: string; schemaKey: string; freeText?: boolean }[] }[] = [
     {
         group: 'FAB',
         color: '#e6f4ff',
@@ -32,6 +33,8 @@ const ATTRIBUTE_GROUPS: { group: string; color: string; fields: { field: string;
             { field: 'gsm',            schemaKey: 'gsm' },
             { field: 'fOunce',         schemaKey: 'f_ounce' },
             { field: 'fWidth',         schemaKey: 'f_width' },
+            { field: 'shade',          schemaKey: 'shade',            freeText: true },
+            { field: 'weight',         schemaKey: 'weight',           freeText: true },
         ],
     },
     {
@@ -53,6 +56,8 @@ const ATTRIBUTE_GROUPS: { group: string; color: string; fields: { field: string;
             { field: 'fit',            schemaKey: 'fit' },
             { field: 'pattern',        schemaKey: 'body_style' },
             { field: 'length',         schemaKey: 'length' },
+            { field: 'childBelt',      schemaKey: 'child_belt',       freeText: true },
+            { field: 'frontOpenStyle', schemaKey: 'front_open_style', freeText: true },
         ],
     },
     {
@@ -95,9 +100,9 @@ const ATTRIBUTE_GROUPS: { group: string; color: string; fields: { field: string;
     },
 ];
 
-// Flat list used in useMemo — keeps group info attached
+// Flat list used in useMemo — keeps group info attached (freeText flag carried through)
 const ATTRIBUTE_FIELDS = ATTRIBUTE_GROUPS.flatMap(g =>
-    g.fields.map(a => ({ ...a, label: f(a.schemaKey), group: g.group, groupColor: g.color }))
+    g.fields.map(a => ({ ...a, label: f(a.schemaKey), group: g.group, groupColor: g.color, freeText: a.freeText ?? false }))
 );
 
 export interface ApproverArticleListProps {
@@ -156,8 +161,12 @@ const ArticleCard = React.memo(({
         const mandatory = getMajCatMandatoryKeys(effectiveMajCat);
         const visible = ATTRIBUTE_FIELDS
             .map(af => {
+                // freeText fields always shown as editable text inputs (no predefined values)
+                if (af.freeText) {
+                    return { field: af.field, label: af.label, schemaKey: af.schemaKey, group: af.group, groupColor: af.groupColor, values: [] as { shortForm: string; fullForm: string }[], freeText: true };
+                }
                 const values = getMajCatAllowedValues(effectiveMajCat, af.schemaKey);
-                return values ? { field: af.field, label: af.label, schemaKey: af.schemaKey, group: af.group, groupColor: af.groupColor, values } : null;
+                return values ? { field: af.field, label: af.label, schemaKey: af.schemaKey, group: af.group, groupColor: af.groupColor, values, freeText: false } : null;
             })
             .filter((af): af is NonNullable<typeof af> => af !== null);
         return { visibleAttrs: visible, mandatoryKeys: mandatory };
@@ -391,6 +400,8 @@ const ArticleCard = React.memo(({
                         {([
                             { label: 'MAJOR CATEGORY',        field: 'majorCategory',              bold: true,  color: '#2f54eb',  editable: false },
                             { label: 'ARTICLE NUMBER',        field: 'articleNumber',               bold: true,  color: item.sapArticleId ? '#389e0d' : '#1d39c4', editable: !item.sapArticleId },
+                            { label: 'VENDOR CODE',           field: 'vendorCode',                  bold: false, color: '#1a1a1a', editable: true },
+                            { label: 'ARTICLE DESC',          field: 'articleDescription',          bold: false, color: '#595959', editable: true },
                             { label: 'REFERENCE ARTICLE',     field: 'referenceArticleNumber',      bold: false, color: '#1a1a1a', editable: true },
                             { label: 'REFERENCE ARTICLE DESC',field: 'referenceArticleDescription', bold: false, color: '#1a1a1a', editable: true },
                         ] as { label: string; field: string; bold: boolean; color: string; editable: boolean }[]).map(({ label, field, bold, color, editable }, i) => {
@@ -485,7 +496,7 @@ const ArticleCard = React.memo(({
                                     {/* Attribute rows for this group */}
                                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                         <tbody>
-                                            {groupMap[g.group].attrs.map(({ field, label, schemaKey, values }) => {
+                                            {groupMap[g.group].attrs.map(({ field, label, schemaKey, values, freeText }) => {
                                                 const isMandatory = mandatoryKeys.has(schemaKey);
                                                 const currentValue = getValue(field);
                                                 const isEmpty = !currentValue;
@@ -511,34 +522,37 @@ const ArticleCard = React.memo(({
                                                             {isMandatory && <span style={{ color: '#ff4d4f', marginRight: 2 }}>*</span>}
                                                             {label}
                                                         </td>
-                                                        {/* Article # for this attribute value */}
+                                                        {/* Art # column — hidden for freeText fields (no BOM lookup needed) */}
+                                                        {!freeText && (
+                                                            <td
+                                                                style={{
+                                                                    padding: '3px 6px',
+                                                                    borderRight: '1px solid #f0f0f0',
+                                                                    verticalAlign: 'middle',
+                                                                    background: isEditingArtNum ? '#e6f7ff' : '#fafafa',
+                                                                    cursor: isLocked ? 'default' : 'pointer',
+                                                                    minWidth: 70,
+                                                                    maxWidth: 90,
+                                                                }}
+                                                                onClick={() => { if (!isLocked && !isEditingArtNum) setEditingField(`artnum_${field}`); }}
+                                                            >
+                                                                {isEditingArtNum ? (
+                                                                    <Input
+                                                                        autoFocus size="small"
+                                                                        defaultValue={artNum}
+                                                                        style={{ fontSize: 10, padding: '0 4px', width: '100%' }}
+                                                                        onPressEnter={(e) => { saveAttrArticleNum(field, (e.target as HTMLInputElement).value); setEditingField(null); }}
+                                                                        onBlur={(e) => { saveAttrArticleNum(field, e.target.value); setEditingField(null); }}
+                                                                    />
+                                                                ) : (
+                                                                    <span style={{ fontSize: 10, color: artNum ? '#1d39c4' : '#d9d9d9', fontStyle: artNum ? 'normal' : 'italic' }}>
+                                                                        {artNum || 'Art #'}
+                                                                    </span>
+                                                                )}
+                                                            </td>
+                                                        )}
                                                         <td
-                                                            style={{
-                                                                padding: '3px 6px',
-                                                                borderRight: '1px solid #f0f0f0',
-                                                                verticalAlign: 'middle',
-                                                                background: isEditingArtNum ? '#e6f7ff' : '#fafafa',
-                                                                cursor: isLocked ? 'default' : 'pointer',
-                                                                minWidth: 70,
-                                                                maxWidth: 90,
-                                                            }}
-                                                            onClick={() => { if (!isLocked && !isEditingArtNum) setEditingField(`artnum_${field}`); }}
-                                                        >
-                                                            {isEditingArtNum ? (
-                                                                <Input
-                                                                    autoFocus size="small"
-                                                                    defaultValue={artNum}
-                                                                    style={{ fontSize: 10, padding: '0 4px', width: '100%' }}
-                                                                    onPressEnter={(e) => { saveAttrArticleNum(field, (e.target as HTMLInputElement).value); setEditingField(null); }}
-                                                                    onBlur={(e) => { saveAttrArticleNum(field, e.target.value); setEditingField(null); }}
-                                                                />
-                                                            ) : (
-                                                                <span style={{ fontSize: 10, color: artNum ? '#1d39c4' : '#d9d9d9', fontStyle: artNum ? 'normal' : 'italic' }}>
-                                                                    {artNum || 'Art #'}
-                                                                </span>
-                                                            )}
-                                                        </td>
-                                                        <td
+                                                            colSpan={freeText ? 2 : 1}
                                                             style={{
                                                                 padding: '3px 8px',
                                                                 cursor: isLocked ? 'default' : 'pointer',
@@ -549,7 +563,28 @@ const ArticleCard = React.memo(({
                                                             }}
                                                             onClick={() => { if (!isLocked && !isEditing) setEditingField(field); }}
                                                         >
-                                                            {isEditing ? (
+                                                            {freeText ? (
+                                                                /* Free-text: render as plain text input */
+                                                                isEditing ? (
+                                                                    <Input
+                                                                        autoFocus
+                                                                        size="small"
+                                                                        defaultValue={currentValue || ''}
+                                                                        style={{ fontSize: 11, width: '100%' }}
+                                                                        onPressEnter={(e) => handleSave(field, (e.target as HTMLInputElement).value || null)}
+                                                                        onBlur={(e) => handleSave(field, e.target.value || null)}
+                                                                    />
+                                                                ) : (
+                                                                    <span style={{
+                                                                        fontSize: 11,
+                                                                        color: isEmpty ? '#bfbfbf' : '#1a1a1a',
+                                                                        fontStyle: isEmpty ? 'italic' : 'normal',
+                                                                    }}>
+                                                                        {currentValue || '—'}
+                                                                    </span>
+                                                                )
+                                                            ) : isEditing ? (
+                                                                /* Dropdown: predefined allowed values */
                                                                 <Select
                                                                     autoFocus
                                                                     showSearch
