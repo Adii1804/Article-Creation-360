@@ -34,6 +34,9 @@ router.get('/items/:id/variants', ApproverController.getVariants);
 router.post('/items/:id/add-color', ApproverController.addColor);
 router.post('/items/:id/sync-color', ApproverController.syncColorToVariants);
 
+// BOM grid Art # lookup — returns { attrName: { mvgrValue: sapCd } } for a major category
+router.get('/bom-art-numbers/:majCat', ApproverController.getBomArtNumbers);
+
 // Admin: backfill article descriptions for a date range
 // POST /api/approver/backfill-descriptions?fromDate=2026-04-10&toDate=2026-04-16
 router.post('/backfill-descriptions', ApproverController.backfillDescriptions);

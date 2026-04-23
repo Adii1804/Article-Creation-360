@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Checkbox, Tag, Select, Input, Spin, Button } from 'antd';
 import { FileTextOutlined, AppstoreAddOutlined, RocketOutlined } from '@ant-design/icons';
 import type { ApproverItem } from './ApproverTable';
@@ -146,10 +146,36 @@ const ArticleCard = React.memo(({
         return { visibleAttrs: visible, mandatoryKeys: mandatory };
     }, [item.majorCategory]);
     const [editingField, setEditingField] = useState<string | null>(null);
-    // Per-attribute article numbers — stored as { fieldName: articleNum }
+    // Per-attribute manual overrides for Art # (user-editable)
     const [attrArticleNums, setAttrArticleNums] = useState<Record<string, string>>(() => {
         try { return JSON.parse((item as any).attrArticleNums || '{}'); } catch { return {}; }
     });
+    // BOM grid map for auto Art # lookup: { excelAttrName: { mvgrValue: sapCd } }
+    const [bomMap, setBomMap] = useState<Record<string, Record<string, string>>>({});
+    const bomFetchedFor = useRef<string>('');
+
+    useEffect(() => {
+        const majCat = item.majorCategory;
+        if (!majCat || bomFetchedFor.current === majCat) return;
+        bomFetchedFor.current = majCat;
+        const token = localStorage.getItem('authToken');
+        fetch(`${APP_CONFIG.api.baseURL}/approver/bom-art-numbers/${encodeURIComponent(majCat)}`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {}
+        })
+            .then(r => r.json())
+            .then(res => { if (res?.data) setBomMap(res.data); })
+            .catch(() => {});
+    }, [item.majorCategory]);
+
+    // Compute Art # for a field: auto-lookup from bomMap, fallback to manual override
+    const getArtNum = useCallback((schemaKey: string, field: string, currentValue: string | null): string => {
+        const excelAttrName = SCHEMA_KEY_TO_EXCEL_ATTR[schemaKey];
+        if (excelAttrName && currentValue && bomMap[excelAttrName]?.[currentValue]) {
+            return bomMap[excelAttrName][currentValue];
+        }
+        return attrArticleNums[field] || '';
+    }, [bomMap, attrArticleNums]);
+
     const saveAttrArticleNum = (field: string, val: string) => {
         const updated = { ...attrArticleNums, [field]: val };
         setAttrArticleNums(updated);
@@ -446,7 +472,7 @@ const ArticleCard = React.memo(({
                                                 const currentValue = getValue(field);
                                                 const isEmpty = !currentValue;
                                                 const isEditing = editingField === field;
-                                                const artNum = attrArticleNums[field] || '';
+                                                const artNum = getArtNum(schemaKey, field, currentValue);
                                                 const isEditingArtNum = editingField === `artnum_${field}`;
                                                 return (
                                                     <tr key={field} style={{ borderBottom: '1px solid #f5f5f5' }}>

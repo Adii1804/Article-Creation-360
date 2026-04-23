@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import { ApprovalStatus, SapSyncStatus } from '../generated/prisma';
+import fs from 'fs';
+import path from 'path';
 import { getHsnCodeByMcCode, getMcCodeByMajorCategory } from '../utils/mcCodeMapper';
 import { parseNumericValue } from '../utils/mrpCalculator';
 import { getSegmentByCategoryAndMrp } from '../utils/segmentRangeMapper';
@@ -1642,6 +1644,35 @@ export class ApproverController {
             return res.json({ message: `Created ${count} color variants`, count });
         } catch (err: any) {
             return res.status(500).json({ error: err.message });
+        }
+    }
+
+    // Cached BOM grid map (loaded once from disk)
+    private static bomGridMap: Record<string, Record<string, Record<string, string>>> | null = null;
+
+    private static loadBomGridMap() {
+        if (ApproverController.bomGridMap) return ApproverController.bomGridMap;
+        try {
+            const filePath = path.resolve(__dirname, '../../data/majCatGridMap.json');
+            ApproverController.bomGridMap = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        } catch (err) {
+            console.error('[BomGrid] Failed to load majCatGridMap.json:', err);
+            ApproverController.bomGridMap = {};
+        }
+        return ApproverController.bomGridMap!;
+    }
+
+    // GET /api/approver/bom-art-numbers/:majCat
+    // Returns { [excelAttrName]: { [mvgrValue]: sapCd } } for the given major category
+    static async getBomArtNumbers(req: Request, res: Response) {
+        try {
+            const { majCat } = req.params;
+            const map = ApproverController.loadBomGridMap();
+            const catData = map[majCat] || {};
+            return res.json({ success: true, data: catData });
+        } catch (err: any) {
+            console.error('[BomGrid] getBomArtNumbers error:', err);
+            return res.status(500).json({ success: false, error: 'Failed to load BOM art numbers' });
         }
     }
 
