@@ -12,8 +12,7 @@ import { SapSyncItemResult } from './sapSyncService';
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
-const ZMM_RFC_URL =
-    process.env.ZMM_RFC_URL || 'https://routemaster.v2retail.com:9010/api/ZMM_ART_CREATION_RFC';
+const ZMM_RFC_URL = 'https://routemaster.v2retail.com:9010/api/ZMM_ART_CREATION_RFC';
 
 const ZMM_RFC_ENABLED =
     (process.env.ZMM_RFC_ENABLED ?? process.env.SAP_SYNC_ENABLED ?? 'true').toLowerCase() === 'true';
