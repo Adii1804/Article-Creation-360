@@ -13,7 +13,7 @@ import { SapSyncItemResult } from './sapSyncService';
 // ─── Config ──────────────────────────────────────────────────────────────────
 
 const ZMM_RFC_URL =
-    process.env.ZMM_RFC_URL || 'http://localhost:5000/api/ZMM_ART_CREATION_RFC';
+    process.env.ZMM_RFC_URL || 'https://routemaster.v2retail.com:9010/api/ZMM_ART_CREATION_RFC';
 
 const ZMM_RFC_ENABLED =
     (process.env.ZMM_RFC_ENABLED ?? process.env.SAP_SYNC_ENABLED ?? 'true').toLowerCase() === 'true';
@@ -38,7 +38,7 @@ type RfcResponse = {
 const FLAT_TO_RFC: Array<{ rfc: string; flat: string }> = [
     // Header / identity
     { rfc: 'HSN_CODE',              flat: 'hsnTaxCode' },
-    { rfc: 'SUB_DIV',               flat: 'division' },          // MENS / LADIES / KIDS
+    { rfc: 'SUB_DIV',               flat: 'subDivision' },       // MS-U / MS-L / LS-U etc.
     { rfc: 'MC_CD',                 flat: 'mcCode' },
     { rfc: 'VENDOR',                flat: 'vendorCode' },
     { rfc: 'DSG_NO',                flat: 'designNumber' },
@@ -108,7 +108,7 @@ const FLAT_TO_RFC: Array<{ rfc: string; flat: string }> = [
 
     // Business / segment
     { rfc: 'M_AGE_GROUP',           flat: 'ageGroup' },
-    { rfc: 'MVGR_BRAND_VENDOR',     flat: 'vendorCode' },
+    { rfc: 'MVGR_BRAND_VENDOR',     flat: 'mvgrBrandVendor' },
     { rfc: 'G_WEIGHT',              flat: 'weight' },
 ];
 
@@ -177,23 +177,30 @@ function parseRfcResponse(
         };
     }
 
-    const sapArt = toStr(parsed?.SAP_ART);
-    const msgTyp = toStr(parsed?.MSG_TYP).toUpperCase();
-    const msgText = toStr(parsed?.MESSAGE);
+    // Support multiple SAP response key formats
+    const sapArt = toStr(parsed?.SAP_ART ?? parsed?.ArticleNumber ?? parsed?.ARTICLE_NUMBER ?? parsed?.artNo);
+    const msgTyp = toStr(parsed?.MSG_TYP ?? parsed?.MsgType ?? parsed?.TYPE ?? parsed?.type ?? '').toUpperCase();
+    const msgText = toStr(parsed?.MESSAGE ?? parsed?.Message ?? parsed?.message ?? parsed?.MSG ?? parsed?.msg ?? parsed?.error ?? parsed?.Error ?? '');
+    const statusFlag = parsed?.Status ?? parsed?.status ?? parsed?.SUCCESS ?? parsed?.success;
+
+    // Log parsed fields to help debug
+    console.log(`[ZMM_RFC] Parsed → SAP_ART="${sapArt}" MSG_TYP="${msgTyp}" MESSAGE="${msgText}" Status="${statusFlag}" | Full keys: ${Object.keys(parsed || {}).join(', ')}`);
 
     // Build readable message
     const messageParts: string[] = [];
     if (msgTyp)  messageParts.push(`[${msgTyp}]`);
     if (msgText) messageParts.push(msgText);
-    const message = messageParts.join(' ') || `SAP response HTTP ${statusCode}`;
+    const message = messageParts.join(' ') || (sapArt ? `Article created: ${sapArt}` : `SAP response HTTP ${statusCode} — ${JSON.stringify(parsed)}`);
 
     // Determine success:
     // - HTTP 2xx AND
     // - Status !== false AND
     // - MSG_TYP not 'E' (error)
     const isHttpOk = statusCode >= 200 && statusCode < 300;
-    const isBusinessOk = parsed?.Status !== false && msgTyp !== 'E';
-    const ok = isHttpOk && isBusinessOk;
+    const isStatusOk = statusFlag !== false && statusFlag !== 'false' && statusFlag !== 0 && statusFlag !== '0';
+    const isBusinessOk = isStatusOk && msgTyp !== 'E' && msgTyp !== 'ERROR';
+    // If SAP_ART is present, treat as success regardless
+    const ok = isHttpOk && (sapArt ? true : isBusinessOk);
 
     return {
         ok,
@@ -239,9 +246,15 @@ export async function syncArticlesToSapViaRfc(
         const payload = buildRfcPayload(item);
 
         console.log(`[ZMM_RFC] Sending article creation request for flat_id=${item.id}`, {
-            MC_CD:  payload.MC_CD,
-            VENDOR: payload.VENDOR,
-            DSG_NO: payload.DSG_NO,
+            MC_CD:            payload.MC_CD,
+            VENDOR:           payload.VENDOR,
+            DSG_NO:           payload.DSG_NO,
+            SUB_DIV:          payload.SUB_DIV,
+            MRP:              payload.MRP,
+            SEASON:           payload.SEASON,
+            MVGR_BRAND_VENDOR: payload.MVGR_BRAND_VENDOR,
+            G_WEIGHT:         payload.G_WEIGHT,
+            M_AGE_GROUP:      payload.M_AGE_GROUP,
         });
 
         // ── 3. Call SAP RFC ──────────────────────────────────────────────────
@@ -253,6 +266,10 @@ export async function syncArticlesToSapViaRfc(
             });
 
             const responseText = await response.text();
+
+            // Log full raw SAP response so we can see exactly what SAP returns
+            console.log(`[ZMM_RFC] RAW SAP response (status=${response.status}) for flat_id=${item.id}:`, responseText);
+
             const outcome = parseRfcResponse(response.status, responseText);
 
             if (outcome.ok) {

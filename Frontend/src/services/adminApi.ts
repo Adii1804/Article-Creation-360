@@ -6,7 +6,7 @@
 import axios from 'axios';
 import { clearAuthSession, redirectToLoginOnce } from '../shared/utils/auth/navigation';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/api';
 
 const adminApi = axios.create({
   baseURL: `${API_BASE_URL}/admin`,

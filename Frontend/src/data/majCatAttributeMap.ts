@@ -56,13 +56,12 @@ export const SCHEMA_KEY_TO_EXCEL_ATTR: Record<string, string> = {
   segment:           'SEGMENT',
   age_group:         'AGE GROUP',
   article_fashion_type: 'ARTICLE FASHION TYPE',
+  mvgr_brand_vendor: 'MVGR_BRAND_VENDOR',
   f_count:           'F_COUNT',
   f_construction:    'F_CONSTRUCTION',
   f_ounce:           'F_OUNCE',
   f_width:           'F_WIDTH',
   extra_pocket:      'EXTRA POCKET',
-  dc_shape:          'DC_SHAPE',
-  btn_colour:        'BTN_CLR',
 };
 
 /**

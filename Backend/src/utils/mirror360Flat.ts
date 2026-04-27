@@ -18,6 +18,7 @@ export const FIELD_TO_360_COL: Record<string, string> = {
     designNumber:                'design_number',
     vendorName:                  'vendor_name',
     vendorCode:                  'vendor_code',
+    mvgrBrandVendor:             'mvgr_brand_vendor',
 
     // Reference
     referenceArticleNumber:      'reference_article_number',

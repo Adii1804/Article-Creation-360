@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { Checkbox, Tag, Select, Input, Spin, Button } from 'antd';
-import { FileTextOutlined, AppstoreAddOutlined, RocketOutlined } from '@ant-design/icons';
+import { Checkbox, Tag, Select, Input, Spin, Button, Tooltip } from 'antd';
+import { FileTextOutlined, AppstoreAddOutlined, RocketOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import type { ApproverItem } from './ApproverTable';
 import { getMajCatAllowedValues, getMajCatMandatoryKeys, SCHEMA_KEY_TO_EXCEL_ATTR, normalizeMajorCategory } from '../../../data/majCatAttributeMap';
 import { getImageUrl } from '../../../shared/utils/common/helpers';
@@ -96,6 +96,7 @@ const ATTRIBUTE_GROUPS: { group: string; color: string; fields: { field: string;
             { field: 'ageGroup',            schemaKey: 'age_group' },
             { field: 'articleFashionType',  schemaKey: 'article_fashion_type' },
             { field: 'segment',             schemaKey: 'segment' },
+            { field: 'mvgrBrandVendor',     schemaKey: 'mvgr_brand_vendor', freeText: true },
         ],
     },
 ];
@@ -264,8 +265,8 @@ const ArticleCard = React.memo(({
             .map(f => getFieldVal(f.field))
             .filter(Boolean) as string[];
 
-        const newFabDesc = fabParts.length > 0 ? fabParts.join('-') : null;
-        const newBodyDesc = bodyParts.length > 0 ? bodyParts.join('-') : null;
+        const newFabDesc = fabParts.length > 0 ? fabParts.join('-').slice(0, 40) : null;
+        const newBodyDesc = bodyParts.length > 0 ? bodyParts.join('-').slice(0, 40) : null;
 
         setLocalValues(prev => {
             const updates: Record<string, string | null> = {};
@@ -385,6 +386,20 @@ const ArticleCard = React.memo(({
                         <Tag style={{ fontSize: 10, lineHeight: '16px', padding: '0 6px', margin: 0, background: status.color + '22', color: status.color, border: `1px solid ${status.color}44` }}>
                             {status.label}
                         </Tag>
+                        {item.sapSyncMessage && (
+                            <Tooltip
+                                title={
+                                    <span style={{ fontSize: 12 }}>
+                                        <strong>SAP Remark:</strong><br />
+                                        {item.sapSyncMessage}
+                                    </span>
+                                }
+                                placement="bottomLeft"
+                                overlayStyle={{ maxWidth: 420 }}
+                            >
+                                <InfoCircleOutlined style={{ fontSize: 13, color: status.color, cursor: 'pointer', flexShrink: 0 }} />
+                            </Tooltip>
+                        )}
                         <span style={{ fontSize: 11, color: '#8c8c8c' }}>
                             {[formatDivisionLabel(item.division), item.subDivision].filter(Boolean).join(' › ')}
                         </span>
@@ -620,9 +635,13 @@ const ArticleCard = React.memo(({
 
                                     {/* FAB group: fabric article no + desc + button */}
                                     {g.group === 'FAB' && (() => {
-                                        const renderField = (field: string, label: string, autoFillFn?: () => void) => {
+                                        const renderField = (field: string, label: string, autoFillFn?: () => void, maxLen?: number) => {
                                             const displayVal = localValues[field] !== undefined ? localValues[field] : (item as any)[field];
                                             const isEditingThis = editingField === `bot_${field}`;
+                                            const saveVal = (raw: string | null) => {
+                                                const v = raw || null;
+                                                handleSave(field, maxLen && v ? v.slice(0, maxLen) : v);
+                                            };
                                             return (
                                                 <div
                                                     style={{ padding: '4px 8px', borderTop: '1px solid #f0f0f0', cursor: isLocked ? 'default' : 'pointer', background: isEditingThis ? '#e6f7ff' : '#fafafa' }}
@@ -634,8 +653,9 @@ const ArticleCard = React.memo(({
                                                     </div>
                                                     {isEditingThis ? (
                                                         <Input autoFocus size="small" defaultValue={displayVal || ''} style={{ fontSize: 11, padding: '0 4px' }}
-                                                            onPressEnter={(e) => handleSave(field, (e.target as HTMLInputElement).value || null)}
-                                                            onBlur={(e) => handleSave(field, e.target.value || null)} />
+                                                            maxLength={maxLen}
+                                                            onPressEnter={(e) => saveVal((e.target as HTMLInputElement).value)}
+                                                            onBlur={(e) => saveVal(e.target.value)} />
                                                     ) : (
                                                         <div style={{ fontSize: 11, color: displayVal ? '#1a1a1a' : '#bfbfbf', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                                             {displayVal || (isLocked ? '—' : 'Click to fill')}
@@ -648,12 +668,12 @@ const ArticleCard = React.memo(({
                                             const parts = FAB_FIELDS.filter(f => mandatoryKeys.has(f.schemaKey))
                                                 .map(f => { const v = localValues[f.field] !== undefined ? localValues[f.field] : (item as any)[f.field]; return v ? String(v).trim() : null; })
                                                 .filter(Boolean);
-                                            if (parts.length > 0) handleSave('fabricArticleDescription', parts.join('-'));
+                                            if (parts.length > 0) handleSave('fabricArticleDescription', parts.join('-').slice(0, 40));
                                         };
                                         return (
                                             <>
                                                 {renderField('fabricArticleNumber', 'FABRIC ARTICLE NO.')}
-                                                {renderField('fabricArticleDescription', 'FABRIC ARTICLE DESC', fabAutoFill)}
+                                                {renderField('fabricArticleDescription', 'FABRIC ARTICLE DESC', fabAutoFill, 40)}
                                                 <div style={{ padding: '5px 8px', borderTop: '1px solid #f0f0f0' }}>
                                                     <Button icon={<FileTextOutlined />} onClick={() => onCreateFabricArticle(item)}
                                                         style={{ background: '#e8e8ff', color: '#4b4acf', border: '1px solid #c7c7f5', fontWeight: 500, fontSize: 11, width: '100%', height: 28 }}>
@@ -666,9 +686,13 @@ const ArticleCard = React.memo(({
 
                                     {/* BODY group: body article no + desc + button */}
                                     {g.group === 'BODY' && (() => {
-                                        const renderField = (field: string, label: string, autoFillFn?: () => void) => {
+                                        const renderField = (field: string, label: string, autoFillFn?: () => void, maxLen?: number) => {
                                             const displayVal = localValues[field] !== undefined ? localValues[field] : (item as any)[field];
                                             const isEditingThis = editingField === `bot_${field}`;
+                                            const saveVal = (raw: string | null) => {
+                                                const v = raw || null;
+                                                handleSave(field, maxLen && v ? v.slice(0, maxLen) : v);
+                                            };
                                             return (
                                                 <div
                                                     style={{ padding: '4px 8px', borderTop: '1px solid #f0f0f0', cursor: isLocked ? 'default' : 'pointer', background: isEditingThis ? '#e6f7ff' : '#fafafa' }}
@@ -680,8 +704,9 @@ const ArticleCard = React.memo(({
                                                     </div>
                                                     {isEditingThis ? (
                                                         <Input autoFocus size="small" defaultValue={displayVal || ''} style={{ fontSize: 11, padding: '0 4px' }}
-                                                            onPressEnter={(e) => handleSave(field, (e.target as HTMLInputElement).value || null)}
-                                                            onBlur={(e) => handleSave(field, e.target.value || null)} />
+                                                            maxLength={maxLen}
+                                                            onPressEnter={(e) => saveVal((e.target as HTMLInputElement).value)}
+                                                            onBlur={(e) => saveVal(e.target.value)} />
                                                     ) : (
                                                         <div style={{ fontSize: 11, color: displayVal ? '#1a1a1a' : '#bfbfbf', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                                             {displayVal || (isLocked ? '—' : 'Click to fill')}
@@ -694,12 +719,12 @@ const ArticleCard = React.memo(({
                                             const parts = BODY_FIELDS.filter(f => mandatoryKeys.has(f.schemaKey))
                                                 .map(f => { const v = localValues[f.field] !== undefined ? localValues[f.field] : (item as any)[f.field]; return v ? String(v).trim() : null; })
                                                 .filter(Boolean);
-                                            if (parts.length > 0) handleSave('bodyArticleDescription', parts.join('-'));
+                                            if (parts.length > 0) handleSave('bodyArticleDescription', parts.join('-').slice(0, 40));
                                         };
                                         return (
                                             <>
                                                 {renderField('bodyArticle', 'BODY ARTICLE NO.')}
-                                                {renderField('bodyArticleDescription', 'BODY ARTICLE DESC', bodyAutoFill)}
+                                                {renderField('bodyArticleDescription', 'BODY ARTICLE DESC', bodyAutoFill, 40)}
                                                 <div style={{ padding: '5px 8px', borderTop: '1px solid #f0f0f0' }}>
                                                     <Button icon={<AppstoreAddOutlined />} onClick={() => onCreateBodyArticle(item)}
                                                         style={{ background: '#f0eaff', color: '#6d3fbd', border: '1px solid #d9c8f7', fontWeight: 500, fontSize: 11, width: '100%', height: 28 }}>

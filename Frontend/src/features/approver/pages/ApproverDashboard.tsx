@@ -465,6 +465,7 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
         embroidery: 'embroidery', embroideryType: 'embroidery_type',
         embPlacement: 'emb_placement', wash: 'wash',
         ageGroup: 'age_group', articleFashionType: 'article_fashion_type',
+        mvgrBrandVendor: 'mvgr_brand_vendor',
     };
 
     // Reactively check if ALL selected pending items have mandatory fields filled.
@@ -1156,16 +1157,20 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
                                     Reject ({pendingSelectedKeys.length})
                                 </Button>
                                 <Tooltip
+                                    placement="bottomRight"
+                                    color="#fff"
+                                    overlayStyle={{ maxWidth: 500 }}
+                                    overlayInnerStyle={{ background: '#fff7f7', border: '1px solid #ffccc7', borderRadius: 8, padding: '10px 14px', boxShadow: '0 4px 16px rgba(255,77,79,0.15)' }}
                                     title={approveBlockedReasons.length > 0 ? (
-                                        <div>
-                                            <div style={{ fontWeight: 600, marginBottom: 4 }}>Fill required fields first:</div>
-                                            {approveBlockedReasons.slice(0, 3).map(({ articleId, missing }) => (
-                                                <div key={articleId} style={{ marginBottom: 4 }}>
-                                                    <span style={{ fontWeight: 500 }}>{articleId}: </span>
-                                                    {missing.slice(0, 3).join(', ')}{missing.length > 3 ? ` +${missing.length - 3} more` : ''}
+                                        <div style={{ color: '#434343', fontSize: 12, lineHeight: '1.6' }}>
+                                            <div style={{ fontWeight: 700, marginBottom: 6, color: '#cf1322', fontSize: 13 }}>⚠ Fill required fields first:</div>
+                                            {approveBlockedReasons.slice(0, 5).map(({ articleId, missing }) => (
+                                                <div key={articleId} style={{ marginBottom: 6, background: '#fff1f0', border: '1px solid #ffa39e', borderRadius: 4, padding: '4px 8px' }}>
+                                                    <span style={{ fontWeight: 600, color: '#d46b08' }}>{articleId}: </span>
+                                                    <span style={{ color: '#a8071a' }}>{missing.join(', ')}</span>
                                                 </div>
                                             ))}
-                                            {approveBlockedReasons.length > 3 && <div>...and {approveBlockedReasons.length - 3} more articles</div>}
+                                            {approveBlockedReasons.length > 5 && <div style={{ color: '#8c8c8c', marginTop: 4 }}>...and {approveBlockedReasons.length - 5} more articles</div>}
                                         </div>
                                     ) : ''}
                                 >
