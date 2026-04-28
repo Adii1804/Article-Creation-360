@@ -29,6 +29,7 @@ import { useImageExtraction } from "../../../shared/hooks/extraction/useImageExt
 import type { SchemaItem } from "../../../shared/types/extraction/ExtractionTypes";
 import { MAJOR_CATEGORY_ALLOWED_VALUES } from "../../../data/majorCategoryMcCodeMap";
 import { getMajCatAllowedValues, getMajCatMandatoryKeys } from "../../../data/majCatAttributeMap";
+import { preloadAttributeValues } from "../../../services/articleConfigService";
 
 import "./ExtractionPage.css";
 import "../../../styles/App.css";
@@ -363,6 +364,7 @@ const SimplifiedExtractionPage = () => {
       setSimplifiedSchema(baseSchema);
       return;
     }
+    preloadAttributeValues(majorCat).catch(() => {});
     const mandatoryKeys = getMajCatMandatoryKeys(majorCat);
     const filtered = baseSchema.map((item) => {
       const majCatValues = getMajCatAllowedValues(majorCat, item.key);

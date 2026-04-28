@@ -6,6 +6,7 @@ import { getImageUrl } from '../../../shared/utils/common/helpers';
 import { SIMPLIFIED_HIERARCHY } from '../../extraction/components/SimplifiedCategorySelector';
 import { MAJOR_CATEGORY_ALLOWED_VALUES } from '../../../data/majorCategoryMcCodeMap';
 import { getMajCatAllowedValues } from '../../../data/majCatAttributeMap';
+import { preloadAttributeValues } from '../../../services/articleConfigService';
 import { APP_CONFIG } from '../../../constants/app/config';
 import { formatDivisionLabel } from '../../../shared/utils/ui/formatters';
 import './ApproverTable.css';
@@ -169,6 +170,7 @@ const EditableCell: React.FC<EditableCellProps> = ({
     useEffect(() => {
         if (editing) {
             inputRef.current?.focus();
+            if (record.majorCategory) preloadAttributeValues(record.majorCategory).catch(() => {});
         }
     }, [editing]);
 

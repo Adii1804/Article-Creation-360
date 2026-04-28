@@ -128,13 +128,72 @@ export const SAP_NAME_TO_SCHEMA_KEY: Record<string, string> = {
   M_ARTICLE_DIMENSION: 'article_dimension',
 };
 
-// Import the Excel-parsed data
-import majCatData from './maj-cat-attribute-values.json';
 import majCatMandatory from './maj-cat-mandatory.json';
 import { MAJOR_CATEGORY_ALLOWED_VALUES } from './majorCategoryMap';
+import { getCachedValues } from '../services/articleConfigService';
 
-const data = majCatData as Record<string, Record<string, string[]>>;
 const mandatoryData = majCatMandatory as Record<string, string[]>;
+
+// Maps frontend schema keys → DB camelCase field names (used in SapFieldConfig/SapAttributeValue)
+const SCHEMA_KEY_TO_DB_FIELD: Record<string, string> = {
+  macro_mvgr:           'macroMvgr',
+  main_mvgr:            'mainMvgr',
+  yarn_01:              'yarn1',
+  fabric_main_mvgr:     'fabricMainMvgr',
+  weave:                'weave',
+  m_fab2:               'mFab2',
+  composition:          'composition',
+  finish:               'finish',
+  gsm:                  'gsm',
+  lycra_non_lycra:      'lycra',
+  collar:               'collar',
+  collar_style:         'collarStyle',
+  placket:              'placket',
+  sleeve:               'sleeve',
+  sleeve_fold:          'sleeveFold',
+  bottom_fold:          'bottomFold',
+  neck:                 'neck',
+  neck_details:         'neckDetails',
+  neck_detail:          'neckDetails',
+  fit:                  'fit',
+  length:               'length',
+  body_style:           'bodyStyle',
+  pocket_type:          'pocketType',
+  no_of_pocket:         'noOfPocket',
+  print_type:           'printType',
+  print_style:          'printStyle',
+  print_placement:      'printPlacement',
+  patches:              'patches',
+  patch_type:           'patchesType',
+  patches_type:         'patches',
+  patch_style:          'patches',
+  embroidery:           'embroidery',
+  embroidery_type:      'embroideryType',
+  emb_placement:        'embPlacement',
+  button:               'button',
+  btn_colour:           'btnColour',
+  zipper:               'zipper',
+  zip_colour:           'zipColour',
+  wash:                 'wash',
+  drawcord:             'drawcord',
+  dc_shape:             'dcShape',
+  father_belt:          'fatherBelt',
+  htrf_type:            'htrfType',
+  htrf_style:           'htrfStyle',
+  shade:                'shade',
+  weight:               'weight',
+  child_belt:           'childBelt',
+  front_open_style:     'frontOpenStyle',
+  segment:              'segment',
+  age_group:            'ageGroup',
+  article_fashion_type: 'articleFashionType',
+  mvgr_brand_vendor:    'mvgrBrandVendor',
+  f_count:              'fCount',
+  f_construction:       'fConstruction',
+  f_ounce:              'fOunce',
+  f_width:              'fWidth',
+  extra_pocket:         'extraPocket',
+};
 
 // Reverse map: normalized fullForm → shortForm
 const fullFormToShortCode = new Map<string, string>(
@@ -158,9 +217,6 @@ const DIVISION_PREFIXES: Record<string, string[]> = {
  */
 export function normalizeMajorCategory(raw: string, division?: string | null): string {
   if (!raw) return raw;
-  // 1. Already a valid short code
-  if (data[raw]) return raw;
-
   const upper = raw.trim().toUpperCase();
 
   // 2. Exact full-form match
@@ -198,13 +254,10 @@ export function getMajCatAllowedValues(
   majorCategory: string,
   schemaKey: string
 ): { shortForm: string; fullForm: string }[] | null {
-  const excelAttr = SCHEMA_KEY_TO_EXCEL_ATTR[schemaKey.toLowerCase()];
-  if (!excelAttr) return null;
+  const dbField = SCHEMA_KEY_TO_DB_FIELD[schemaKey.toLowerCase()];
+  if (!dbField) return null;
 
-  const catData = data[majorCategory];
-  if (!catData) return null;
-
-  const values = catData[excelAttr];
+  const values = getCachedValues(majorCategory, dbField);
   if (!values || values.length === 0) return null;
 
   return values.map((v) => ({ shortForm: v, fullForm: v }));

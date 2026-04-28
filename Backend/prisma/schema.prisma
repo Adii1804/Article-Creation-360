@@ -374,10 +374,6 @@ model ExtractionResultFlat {
   @@index([pptNumber])
   @@index([referenceArticleNumber])
   @@index([isGeneric, approvalStatus, division])
-  // GIN trigram index — speeds up ILIKE '%...%' queries on imageUncPath (old/new path classification).
-  // Requires pg_trgm extension (enabled by default on Supabase).
-  // Apply with: npx prisma db push  (or prisma migrate dev)
-  @@index([imageUncPath(ops: raw("gin_trgm_ops"))], type: Gin, name: "extraction_results_flat_image_unc_path_gin_trgm")
   @@map("extraction_results_flat")
   @@schema("public")
 }
@@ -403,8 +399,8 @@ model User {
   password       String             @db.VarChar(255)
   name           String             @db.VarChar(100)
   role           UserRole           @default(CREATOR)
-  division       String?            @db.VarChar(50)  // Linked to Department.name
-  subDivision    String?            @map("sub_division") @db.VarChar(50) // Linked to SubDepartment.code
+  division       String?            @db.VarChar(200)  // Linked to Department.name
+  subDivision    String?            @map("sub_division") @db.VarChar(500) // Linked to SubDepartment.code
   isActive       Boolean            @default(true) @map("is_active")
   lastLogin      DateTime?          @map("last_login")
   createdAt      DateTime           @default(now()) @map("created_at")
@@ -734,6 +730,42 @@ model ArticleBom {
   article    Article360 @relation(fields: [articleId], references: [id], onDelete: Cascade)
 
   @@map("article_bom")
+  @@schema("360article")
+}
+
+/// SapFieldConfig: Source-of-truth mapping — 360 UI field → SAP RFC field name
+model SapFieldConfig {
+  id           Int                 @id @default(autoincrement())
+  section      String              @db.VarChar(50)
+  uiLabel      String              @map("ui_label") @db.VarChar(100)
+  dbField      String              @unique @map("db_field") @db.VarChar(100)
+  sapField     String              @map("sap_field") @db.VarChar(100)
+  isActive     Boolean             @default(true) @map("is_active")
+  displayOrder Int                 @default(0) @map("display_order")
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+  values       SapAttributeValue[]
+
+  @@index([section])
+  @@index([sapField])
+  @@map("sap_field_config")
+  @@schema("360article")
+}
+
+/// SapAttributeValue: Allowed dropdown values per field, optionally scoped to a major category
+model SapAttributeValue {
+  id            Int            @id @default(autoincrement())
+  fieldConfigId Int            @map("field_config_id")
+  value         String         @db.VarChar(200)
+  majorCategory String?        @map("major_category") @db.VarChar(200)
+  displayOrder  Int            @default(0) @map("display_order")
+  isActive      Boolean        @default(true) @map("is_active")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  fieldConfig   SapFieldConfig @relation(fields: [fieldConfigId], references: [id], onDelete: Cascade)
+
+  @@unique([fieldConfigId, value, majorCategory])
+  @@index([fieldConfigId, majorCategory, isActive])
+  @@map("sap_attribute_value")
   @@schema("360article")
 }
 

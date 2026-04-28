@@ -3,6 +3,7 @@ import { Checkbox, Tag, Select, Input, Spin, Button, Tooltip } from 'antd';
 import { FileTextOutlined, AppstoreAddOutlined, RocketOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import type { ApproverItem } from './ApproverTable';
 import { getMajCatAllowedValues, getMajCatMandatoryKeys, SCHEMA_KEY_TO_EXCEL_ATTR, normalizeMajorCategory } from '../../../data/majCatAttributeMap';
+import { preloadAttributeValues } from '../../../services/articleConfigService';
 import { getImageUrl } from '../../../shared/utils/common/helpers';
 import { APP_CONFIG } from '../../../constants/app/config';
 import { formatDivisionLabel } from '../../../shared/utils/ui/formatters';
@@ -180,6 +181,10 @@ const ArticleCard = React.memo(({
     // BOM grid map for auto Art # lookup: { excelAttrName: { mvgrValue: sapCd } }
     const [bomMap, setBomMap] = useState<Record<string, Record<string, string>>>({});
     const bomFetchedFor = useRef<string>('');
+
+    useEffect(() => {
+        if (effectiveMajCat) preloadAttributeValues(effectiveMajCat).catch(() => {});
+    }, [effectiveMajCat]);
 
     useEffect(() => {
         if (!effectiveMajCat || bomFetchedFor.current === effectiveMajCat) return;

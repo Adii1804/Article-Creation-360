@@ -10,6 +10,7 @@ import { APP_CONFIG } from '../../../constants/app/config';
 import { SIMPLIFIED_HIERARCHY } from '../../extraction/components/SimplifiedCategorySelector';
 import { getMcCodeByMajorCategory, MAJOR_CATEGORY_ALLOWED_VALUES } from '../../../data/majorCategoryMcCodeMap';
 import { getMajCatAllowedValues, getMajCatMandatoryKeys, SCHEMA_KEY_TO_EXCEL_ATTR, normalizeMajorCategory } from '../../../data/majCatAttributeMap';
+import { preloadAttributeValues } from '../../../services/articleConfigService';
 import { formatDivisionLabel } from '../../../shared/utils/ui/formatters';
 import type { Dayjs } from 'dayjs';
 import { exportToExcel } from '../../../shared/utils/export/extractionExport';
@@ -296,6 +297,14 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
     }, [statusFilter, divisionFilter, subDivisionFilter, searchText, dateRangeFilter, pathType]);
 
     useEffect(() => { fetchAttributes(); }, [fetchAttributes]);
+
+    // Preload DB attribute values whenever editing item changes
+    useEffect(() => {
+        if (editingItem?.majorCategory) {
+            const mc = normalizeMajorCategory(editingItem.majorCategory, editingItem.division);
+            preloadAttributeValues(mc).catch(() => {});
+        }
+    }, [editingItem?.majorCategory, editingItem?.division]);
 
     // Fires on mount and whenever fetchItems is recreated (i.e. any filter changes).
     // Always resets to page 1 so filter results start from the beginning.

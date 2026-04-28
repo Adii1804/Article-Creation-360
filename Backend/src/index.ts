@@ -19,6 +19,7 @@ import userFeedbackRoutes from './routes/userFeedback'; // NEW: User feedback/co
 import costRoutes from './routes/costs'; // NEW: Cost tracking routes
 import approverRoutes from './routes/approver'; // NEW: Approver workflow routes
 import watcherRoutes from './routes/watcher'; // Watcher service routes
+import articleConfigRoutes from './routes/articleConfig';
 
 // Middleware
 import { errorHandler, notFound } from './middleware/errorHandler';
@@ -198,6 +199,7 @@ app.use('/api/approver', authenticate, auditLog, approverRoutes);
 // Secured by X-Watcher-Key header, NOT JWT
 // ═══════════════════════════════════════════════════════
 app.use('/api/watcher', authenticateWatcher, watcherRoutes); // TODO: Add requireApprover middleware
+app.use('/api/article-config', authenticate, articleConfigRoutes);
 
 // Health check endpoint (public)
 app.get('/api/health', (req, res) => {
