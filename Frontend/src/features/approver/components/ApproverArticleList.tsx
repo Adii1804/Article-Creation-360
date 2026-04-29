@@ -648,12 +648,22 @@ const ArticleCard = React.memo(({
                                                                     ))}
                                                                 </Select>
                                                             ) : (
-                                                                <span style={{
-                                                                    fontSize: 11,
-                                                                    color: isEmpty ? (isMandatory ? '#fa8c16' : '#bfbfbf') : '#1a1a1a',
-                                                                    fontStyle: isEmpty ? 'italic' : 'normal',
-                                                                }}>
-                                                                    {currentValue || (isMandatory ? 'Required' : '—')}
+                                                                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                                    <span style={{
+                                                                        fontSize: 11,
+                                                                        color: isEmpty ? (isMandatory ? '#fa8c16' : '#bfbfbf') : '#1a1a1a',
+                                                                        fontStyle: isEmpty ? 'italic' : 'normal',
+                                                                        flex: 1,
+                                                                    }}>
+                                                                        {currentValue || (isMandatory ? 'Required' : '—')}
+                                                                    </span>
+                                                                    {currentValue && !isLocked && (
+                                                                        <span
+                                                                            onClick={(e) => { e.stopPropagation(); handleSave(field, null); }}
+                                                                            style={{ color: '#bfbfbf', fontSize: 10, cursor: 'pointer', lineHeight: 1, padding: '0 2px', flexShrink: 0 }}
+                                                                            title="Clear"
+                                                                        >✕</span>
+                                                                    )}
                                                                 </span>
                                                             )}
                                                         </td>
