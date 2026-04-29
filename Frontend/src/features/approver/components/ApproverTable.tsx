@@ -170,7 +170,7 @@ const EditableCell: React.FC<EditableCellProps> = ({
     useEffect(() => {
         if (editing) {
             inputRef.current?.focus();
-            if (record.majorCategory) preloadAttributeValues(record.majorCategory).catch(() => {});
+            if (record.division) preloadAttributeValues(record.division).catch(() => {});
         }
     }, [editing]);
 
@@ -664,7 +664,7 @@ export const ApproverTable: React.FC<ApproverTableProps> = ({
                     // Try to get Excel-filtered values for this column based on the row's major category
                     const schemaKey = COL_TO_SCHEMA_KEY[field];
                     if (schemaKey && record.majorCategory) {
-                        const excelValues = getMajCatAllowedValues(record.majorCategory, schemaKey);
+                        const excelValues = getMajCatAllowedValues(record.division || '', schemaKey);
                         if (excelValues && excelValues.length > 0) {
                             inputType = 'select';
                             options = excelValues.map(v => ({ label: v.shortForm, value: v.shortForm }));

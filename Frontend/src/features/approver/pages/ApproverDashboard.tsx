@@ -298,13 +298,12 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
 
     useEffect(() => { fetchAttributes(); }, [fetchAttributes]);
 
-    // Preload DB attribute values whenever editing item changes
+    // Preload DB attribute values (division-scoped) whenever editing item changes
     useEffect(() => {
-        if (editingItem?.majorCategory) {
-            const mc = normalizeMajorCategory(editingItem.majorCategory, editingItem.division);
-            preloadAttributeValues(mc).catch(() => {});
+        if (editingItem?.division) {
+            preloadAttributeValues(editingItem.division).catch(() => {});
         }
-    }, [editingItem?.majorCategory, editingItem?.division]);
+    }, [editingItem?.division]);
 
     // Fires on mount and whenever fetchItems is recreated (i.e. any filter changes).
     // Always resets to page 1 so filter results start from the beginning.
@@ -946,11 +945,12 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
     // Values are filtered from the Excel grid data. Mandatory fields are marked with *.
     const attributesTab = (() => {
         const majorCat = editingItem?.majorCategory || '';
+        const division = editingItem?.division || '';
         const mandatoryKeys = getMajCatMandatoryKeys(majorCat);
 
         const visibleFields = ATTRIBUTE_FIELDS.filter(field => {
-            if (!majorCat) return true; // no category selected → show all
-            const values = getMajCatAllowedValues(majorCat, field.schemaKey);
+            if (!division) return true; // no division selected → show all
+            const values = getMajCatAllowedValues(division, field.schemaKey);
             return values !== null || mandatoryKeys.has(field.schemaKey);
         });
 
@@ -967,7 +967,7 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <tbody>
                         {visibleFields.map(field => {
-                            const values = majorCat ? getMajCatAllowedValues(majorCat, field.schemaKey) : null;
+                            const values = division ? getMajCatAllowedValues(division, field.schemaKey) : null;
                             const isMandatory = mandatoryKeys.has(field.schemaKey);
                             return (
                                 <tr key={field.formName} style={{ borderBottom: '1px solid #f0f0f0' }}>

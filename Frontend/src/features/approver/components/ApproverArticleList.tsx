@@ -167,7 +167,7 @@ const ArticleCard = React.memo(({
                 if (af.freeText) {
                     return { field: af.field, label: af.label, schemaKey: af.schemaKey, group: af.group, groupColor: af.groupColor, values: [] as { shortForm: string; fullForm: string }[], freeText: true };
                 }
-                const values = getMajCatAllowedValues(effectiveMajCat, af.schemaKey);
+                const values = getMajCatAllowedValues(item.division || '', af.schemaKey);
                 return values ? { field: af.field, label: af.label, schemaKey: af.schemaKey, group: af.group, groupColor: af.groupColor, values, freeText: false } : null;
             })
             .filter((af): af is NonNullable<typeof af> => af !== null);
@@ -183,8 +183,8 @@ const ArticleCard = React.memo(({
     const bomFetchedFor = useRef<string>('');
 
     useEffect(() => {
-        if (effectiveMajCat) preloadAttributeValues(effectiveMajCat).catch(() => {});
-    }, [effectiveMajCat]);
+        if (item.division) preloadAttributeValues(item.division).catch(() => {});
+    }, [item.division]);
 
     useEffect(() => {
         if (!effectiveMajCat || bomFetchedFor.current === effectiveMajCat) return;

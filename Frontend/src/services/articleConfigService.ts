@@ -2,8 +2,8 @@
  * articleConfigService.ts
  *
  * Fetches SAP field configs and attribute values from the backend DB.
- * Caches results in memory so synchronous callers (getMajCatAllowedValues) work
- * after an initial async preload.
+ * Values are scoped by division (MENS | LADIES | KIDS) from the National Grid.
+ * In-memory cache so components can call getCachedValues() synchronously after preload.
  */
 
 import axios from 'axios';
@@ -12,7 +12,6 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001
 
 const api = axios.create({ baseURL: `${API_BASE_URL}/article-config` });
 
-// Attach auth token to every request
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
   if (token) config.headers.Authorization = `Bearer ${token}`;
@@ -30,16 +29,23 @@ export interface SapFieldConfig {
   displayOrder: number;
 }
 
-// ─── In-memory cache ──────────────────────────────────────────────────────────
+// Normalise any division string to MENS | LADIES | KIDS
+function normaliseDivision(raw: string): string {
+  const u = raw.trim().toUpperCase();
+  if (u.startsWith('MEN')) return 'MENS';
+  if (u.startsWith('LAD') || u.startsWith('WOM')) return 'LADIES';
+  if (u.startsWith('KID') || u.startsWith('JUN') || u.startsWith('BOY') || u.startsWith('GIR')) return 'KIDS';
+  return u; // pass-through
+}
 
-// values cache: majorCategory → { dbField → string[] }
+// ─── Cache ────────────────────────────────────────────────────────────────────
+
 const valuesCache = new Map<string, Record<string, string[]>>();
 let fieldsCache: SapFieldConfig[] | null = null;
 const pendingLoads = new Map<string, Promise<void>>();
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
-/** Preload field configs (call once at app startup or component mount). */
 export async function preloadFieldConfigs(): Promise<SapFieldConfig[]> {
   if (fieldsCache) return fieldsCache;
   const { data } = await api.get<{ data: SapFieldConfig[] }>('/fields');
@@ -48,54 +54,52 @@ export async function preloadFieldConfigs(): Promise<SapFieldConfig[]> {
 }
 
 /**
- * Preload allowed values for a major category.
+ * Preload allowed values for a division (MENS | LADIES | KIDS).
+ * Also accepts a full division name like "MENS TOPWEAR" — normalised automatically.
  * Safe to call multiple times — deduplicates in-flight requests.
  */
-export async function preloadAttributeValues(majorCategory: string): Promise<void> {
-  if (valuesCache.has(majorCategory)) return;
-  if (pendingLoads.has(majorCategory)) return pendingLoads.get(majorCategory)!;
+export async function preloadAttributeValues(divisionOrCategory: string): Promise<void> {
+  const division = normaliseDivision(divisionOrCategory);
+  if (valuesCache.has(division)) return;
+  if (pendingLoads.has(division)) return pendingLoads.get(division)!;
 
   const load = api
-    .get<{ data: Record<string, string[]> }>(`/values?majorCategory=${encodeURIComponent(majorCategory)}`)
-    .then(({ data }) => {
-      valuesCache.set(majorCategory, data.data);
-    })
-    .finally(() => pendingLoads.delete(majorCategory));
+    .get<{ data: Record<string, string[]> }>(`/values?division=${encodeURIComponent(division)}`)
+    .then(({ data }) => { valuesCache.set(division, data.data); })
+    .finally(() => pendingLoads.delete(division));
 
-  pendingLoads.set(majorCategory, load);
+  pendingLoads.set(division, load);
   return load;
 }
 
 /**
  * Synchronous lookup — returns values from cache.
- * Must call preloadAttributeValues(majorCategory) first.
+ * divisionOrCategory is normalised automatically.
+ * Call preloadAttributeValues(division) first; returns null if not yet loaded.
  */
 export function getCachedValues(
-  majorCategory: string,
+  divisionOrCategory: string,
   dbField: string
 ): string[] | null {
-  const catData = valuesCache.get(majorCategory);
+  const division = normaliseDivision(divisionOrCategory);
+  const catData = valuesCache.get(division);
   if (!catData) return null;
   return catData[dbField] ?? null;
 }
 
-/** Returns true if values for this major category are already cached. */
-export function isValuesCached(majorCategory: string): boolean {
-  return valuesCache.has(majorCategory);
+export function isValuesCached(divisionOrCategory: string): boolean {
+  return valuesCache.has(normaliseDivision(divisionOrCategory));
 }
 
-/** Returns the cached field configs (null if not yet loaded). */
 export function getCachedFieldConfigs(): SapFieldConfig[] | null {
   return fieldsCache;
 }
 
-/** Build a dbField → sapField lookup from the cached field configs. */
 export function buildDbToSapMap(): Record<string, string> {
   if (!fieldsCache) return {};
   return Object.fromEntries(fieldsCache.map((f) => [f.dbField, f.sapField]));
 }
 
-/** Build a uiLabel → dbField lookup from the cached field configs. */
 export function buildUiLabelToDbFieldMap(): Record<string, string> {
   if (!fieldsCache) return {};
   return Object.fromEntries(fieldsCache.map((f) => [f.uiLabel, f.dbField]));

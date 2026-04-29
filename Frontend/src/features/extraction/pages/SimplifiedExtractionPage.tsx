@@ -364,10 +364,11 @@ const SimplifiedExtractionPage = () => {
       setSimplifiedSchema(baseSchema);
       return;
     }
-    preloadAttributeValues(majorCat).catch(() => {});
+    const division = selectedCategory?.department || '';
+    preloadAttributeValues(division).catch(() => {});
     const mandatoryKeys = getMajCatMandatoryKeys(majorCat);
     const filtered = baseSchema.map((item) => {
-      const majCatValues = getMajCatAllowedValues(majorCat, item.key);
+      const majCatValues = getMajCatAllowedValues(division, item.key);
       const isRequired = mandatoryKeys.has(item.key);
       return {
         ...item,
