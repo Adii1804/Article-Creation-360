@@ -491,9 +491,10 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
                     missing.push(SCHEMA_KEY_TO_EXCEL_ATTR[schemaKey] || schemaKey);
                 }
             }
-            // BOM fields — always mandatory regardless of division
+            // BOM / header fields — always mandatory regardless of division
             if (!item.mrp || Number(item.mrp) === 0) missing.push('MRP');
             if (!(item as any).impAtrbt2) missing.push('IMP_ATRBT-2');
+            if (!item.referenceArticleDescription) missing.push('Reference Article Description');
             if (missing.length > 0) {
                 errors.push({
                     articleId: item.sapArticleId || item.articleNumber || item.imageName || item.id,
@@ -521,9 +522,10 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
                     missing.push(SCHEMA_KEY_TO_EXCEL_ATTR[schemaKey] || schemaKey);
                 }
             }
-            // BOM fields — always mandatory regardless of division
+            // BOM / header fields — always mandatory regardless of division
             if (!item.mrp || Number(item.mrp) === 0) missing.push('MRP');
             if (!(item as any).impAtrbt2) missing.push('IMP_ATRBT-2');
+            if (!item.referenceArticleDescription) missing.push('Reference Article Description');
 
             if (missing.length > 0) {
                 errors.push({
