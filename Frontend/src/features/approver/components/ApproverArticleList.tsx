@@ -650,7 +650,6 @@ const ArticleCard = React.memo(({
                                                                     onDropdownVisibleChange={(open) => { if (!open) setEditingField(null); }}
                                                                     getPopupContainer={() => document.body}
                                                                 >
-                                                                    <Option key="-" value="-">-</Option>
                                                                     {values.map(v => (
                                                                         <Option key={v.shortForm} value={v.shortForm}>{v.shortForm}</Option>
                                                                     ))}
