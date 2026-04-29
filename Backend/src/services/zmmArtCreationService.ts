@@ -127,6 +127,7 @@ const MANDATORY: Array<{ flat: string; label: string }> = [
     { flat: 'macroMvgr',     label: 'Macro MVGR' },
     { flat: 'mainMvgr',      label: 'Main MVGR' },
     { flat: 'mrp',           label: 'MRP' },
+    { flat: 'impAtrbt2',     label: 'Important Attribute (M_MAIN_MVGR)' },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
