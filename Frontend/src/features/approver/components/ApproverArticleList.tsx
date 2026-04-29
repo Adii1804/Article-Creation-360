@@ -799,23 +799,25 @@ const ArticleCard = React.memo(({
                                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                     <tbody>
                                         {[
-                                            { label: 'RATE / COST',  field: 'rate',       editable: true },
-                                            { label: 'MRP',          field: 'mrp',        editable: true },
-                                            { label: 'MARKDOWN',     field: '_markdown',  editable: false },
-                                            { label: 'IMP_ATRBT-2', field: 'impAtrbt2',  editable: true },
-                                        ].map(({ label, field, editable }) => {
+                                            { label: 'RATE / COST',  field: 'rate',       editable: true,  mandatory: false },
+                                            { label: 'MRP',          field: 'mrp',        editable: true,  mandatory: true  },
+                                            { label: 'MARKDOWN',     field: '_markdown',  editable: false, mandatory: false },
+                                            { label: 'IMP_ATRBT-2', field: 'impAtrbt2',  editable: true,  mandatory: true  },
+                                        ].map(({ label, field, editable, mandatory }) => {
                                             const isEditingBom = editingField === `bom_${field}`;
                                             const val = field === '_markdown' ? markdown
                                                 : String(getValue(field) ?? '').trim() || '—';
+                                            const isEmpty = val === '—';
                                             return (
                                                 <tr key={field} style={{ borderBottom: '1px solid #f5f5f5' }}>
                                                     <td style={{
                                                         padding: '4px 8px', fontSize: 11, fontWeight: 400,
-                                                        color: '#595959', background: '#fafafa',
+                                                        color: mandatory && isEmpty && !isLocked ? '#ff4d4f' : '#595959',
+                                                        background: '#fafafa',
                                                         borderRight: '1px solid #f0f0f0', whiteSpace: 'nowrap',
                                                         verticalAlign: 'middle',
                                                     }}>
-                                                        {label}
+                                                        {label}{mandatory && <span style={{ color: '#ff4d4f', marginLeft: 2 }}>*</span>}
                                                     </td>
                                                     <td
                                                         style={{
@@ -836,7 +838,9 @@ const ArticleCard = React.memo(({
                                                         ) : (
                                                             <span style={{
                                                                 fontSize: 11,
-                                                                color: field === '_markdown' ? '#7c3aed' : val === '—' ? '#bfbfbf' : '#1a1a1a',
+                                                                color: field === '_markdown' ? '#7c3aed'
+                                                                    : mandatory && isEmpty && !isLocked ? '#ff4d4f'
+                                                                    : isEmpty ? '#bfbfbf' : '#1a1a1a',
                                                                 fontWeight: field === '_markdown' ? 600 : 400,
                                                             }}>
                                                                 {val}
