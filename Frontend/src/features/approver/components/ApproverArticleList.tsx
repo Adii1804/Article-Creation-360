@@ -161,6 +161,9 @@ const ArticleCard = React.memo(({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [localValues['majorCategory'], item.majorCategory, item.division]);
 
+    // Tracks when the attribute values cache has loaded so visibleAttrs re-computes
+    const [cacheReady, setCacheReady] = useState(false);
+
     // Compute attributes per-card from this article's own majorCategory
     const { visibleAttrs, mandatoryKeys } = useMemo(() => {
         if (!effectiveMajCat) return { visibleAttrs: [], mandatoryKeys: new Set<string>() };
@@ -176,7 +179,9 @@ const ArticleCard = React.memo(({
             })
             .filter((af): af is NonNullable<typeof af> => af !== null);
         return { visibleAttrs: visible, mandatoryKeys: mandatory };
-    }, [effectiveMajCat]);
+    // cacheReady is a dependency so this re-runs once the attribute cache loads
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [effectiveMajCat, cacheReady]);
     const [editingField, setEditingField] = useState<string | null>(null);
     // Per-attribute manual overrides for Art # (user-editable)
     const [attrArticleNums, setAttrArticleNums] = useState<Record<string, string>>(() => {
@@ -187,7 +192,10 @@ const ArticleCard = React.memo(({
     const bomFetchedFor = useRef<string>('');
 
     useEffect(() => {
-        if (item.division) preloadAttributeValues(item.division).catch(() => {});
+        if (!item.division) return;
+        preloadAttributeValues(item.division)
+            .then(() => setCacheReady(true))
+            .catch(() => setCacheReady(true)); // still flip so fields show (empty)
     }, [item.division]);
 
     useEffect(() => {
