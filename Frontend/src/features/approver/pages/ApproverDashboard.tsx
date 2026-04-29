@@ -476,21 +476,19 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
         mvgrBrandVendor: 'mvgr_brand_vendor',
     };
 
-    // Reactively check if ALL selected pending items have mandatory fields filled.
-    // Approve button is disabled when any item is missing a required field.
+    // Reactively check if ALL selected pending items have every visible dropdown field filled.
+    // '-' counts as filled (frontend placeholder); only null/empty triggers a block.
+    // Approve button is disabled when any item has an unfilled visible field.
     const approveBlockedReasons = useMemo(() => {
         const pendingItems = items.filter(i => pendingSelectedKeys.includes(i.id));
         const errors: { articleId: string; missing: string[] }[] = [];
         for (const item of pendingItems) {
             const missing: string[] = [];
-            // Normalize majorCategory to short code before mandatory lookup
-            const effMajCat = normalizeMajorCategory(item.majorCategory || '', item.division);
-            if (effMajCat) {
-                const mandatoryKeys = getMajCatMandatoryKeys(effMajCat);
-                for (const [field, schemaKey] of Object.entries(FIELD_TO_SCHEMA_KEY)) {
-                    if (mandatoryKeys.has(schemaKey) && !(item as any)[field]) {
-                        missing.push(SCHEMA_KEY_TO_EXCEL_ATTR[schemaKey] || schemaKey);
-                    }
+            for (const [field, schemaKey] of Object.entries(FIELD_TO_SCHEMA_KEY)) {
+                // Only check fields that have dropdown values for this division
+                const hasValues = getMajCatAllowedValues(item.division || '', schemaKey) !== null;
+                if (hasValues && !(item as any)[field]) {
+                    missing.push(SCHEMA_KEY_TO_EXCEL_ATTR[schemaKey] || schemaKey);
                 }
             }
             if (missing.length > 0) {
@@ -513,16 +511,11 @@ export default function ApproverDashboard({ pathType }: ApproverDashboardProps =
         for (const item of pendingItems) {
             const missing: string[] = [];
 
-            // Check Excel-driven mandatory fields for this major category
-            // (normalize majorCategory to short code first for correct lookup)
-            const effMajCat = normalizeMajorCategory(item.majorCategory || '', item.division);
-            if (effMajCat) {
-                const mandatoryKeys = getMajCatMandatoryKeys(effMajCat);
-                for (const [field, schemaKey] of Object.entries(FIELD_TO_SCHEMA_KEY)) {
-                    if (mandatoryKeys.has(schemaKey) && !(item as any)[field]) {
-                        const excelName = SCHEMA_KEY_TO_EXCEL_ATTR[schemaKey] || schemaKey;
-                        missing.push(excelName);
-                    }
+            // All visible dropdown fields are mandatory; '-' counts as filled
+            for (const [field, schemaKey] of Object.entries(FIELD_TO_SCHEMA_KEY)) {
+                const hasValues = getMajCatAllowedValues(item.division || '', schemaKey) !== null;
+                if (hasValues && !(item as any)[field]) {
+                    missing.push(SCHEMA_KEY_TO_EXCEL_ATTR[schemaKey] || schemaKey);
                 }
             }
 

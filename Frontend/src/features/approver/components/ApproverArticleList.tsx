@@ -540,9 +540,10 @@ const ArticleCard = React.memo(({
                                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                         <tbody>
                                             {groupMap[g.group].attrs.map(({ field, label, schemaKey, values, freeText }) => {
-                                                const isMandatory = mandatoryKeys.has(schemaKey);
                                                 const currentValue = getValue(field);
+                                                // '-' counts as filled; only truly empty/null is unfilled
                                                 const isEmpty = !currentValue;
+                                                const isMandatory = !freeText; // all dropdown fields are mandatory
                                                 const isEditing = editingField === field;
                                                 const artNum = getArtNum(schemaKey, field, currentValue);
                                                 const isEditingArtNum = editingField === `artnum_${field}`;
@@ -641,6 +642,7 @@ const ArticleCard = React.memo(({
                                                                     onDropdownVisibleChange={(open) => { if (!open) setEditingField(null); }}
                                                                     getPopupContainer={() => document.body}
                                                                 >
+                                                                    <Option key="-" value="-">-</Option>
                                                                     {values.map(v => (
                                                                         <Option key={v.shortForm} value={v.shortForm}>{v.shortForm}</Option>
                                                                     ))}

@@ -132,7 +132,8 @@ const MANDATORY: Array<{ flat: string; label: string }> = [
 const toStr = (v: unknown): string => {
     if (v === null || v === undefined) return '';
     if (v instanceof Date) return v.toISOString();
-    return String(v).trim();
+    const s = String(v).trim();
+    return s === '-' ? '' : s;  // dash = frontend placeholder, send empty to SAP
 };
 
 /**
