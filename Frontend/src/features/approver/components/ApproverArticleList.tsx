@@ -488,8 +488,8 @@ const ArticleCard = React.memo(({
                                             onBlur={(e) => handleSave(field, e.target.value || null)}
                                         />
                                     ) : (
-                                        <div style={{ fontSize: 12, fontWeight: 400, color: displayVal ? color : (field === 'referenceArticleDescription' && !isLocked ? '#ff4d4f' : '#bfbfbf'), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                            {displayVal || (canEdit ? 'Click to fill' : '—')}
+                                        <div style={{ fontSize: 12, fontWeight: 400, color: displayVal ? color : (field === 'referenceArticleDescription' && !isLocked ? '#fa8c16' : '#bfbfbf'), fontStyle: (!displayVal && field === 'referenceArticleDescription' && !isLocked) ? 'italic' : 'normal', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            {displayVal || (field === 'referenceArticleDescription' && !isLocked ? 'Required' : (canEdit ? 'Click to fill' : '—'))}
                                         </div>
                                     )}
                                 </div>
@@ -838,11 +838,12 @@ const ArticleCard = React.memo(({
                                                             <span style={{
                                                                 fontSize: 11,
                                                                 color: field === '_markdown' ? '#7c3aed'
-                                                                    : mandatory && isEmpty && !isLocked ? '#ff4d4f'
+                                                                    : mandatory && isEmpty && !isLocked ? '#fa8c16'
                                                                     : isEmpty ? '#bfbfbf' : '#1a1a1a',
+                                                                fontStyle: mandatory && isEmpty && !isLocked ? 'italic' : 'normal',
                                                                 fontWeight: field === '_markdown' ? 600 : 400,
                                                             }}>
-                                                                {val}
+                                                                {mandatory && isEmpty && !isLocked ? 'Required' : val}
                                                             </span>
                                                         )}
                                                     </td>
