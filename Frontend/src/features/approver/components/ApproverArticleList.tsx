@@ -3,6 +3,7 @@ import { Checkbox, Tag, Select, Input, Spin, Button, Tooltip } from 'antd';
 import { FileTextOutlined, AppstoreAddOutlined, RocketOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import type { ApproverItem } from './ApproverTable';
 import { getMajCatAllowedValues, getMajCatMandatoryKeys, SCHEMA_KEY_TO_EXCEL_ATTR, normalizeMajorCategory } from '../../../data/majCatAttributeMap';
+import { getMajorCategoriesByDivision, getMcCodeByMajorCategory } from '../../../data/majorCategoryMcCodeMap';
 import { preloadAttributeValues } from '../../../services/articleConfigService';
 import { getImageUrl } from '../../../shared/utils/common/helpers';
 import { APP_CONFIG } from '../../../constants/app/config';
@@ -151,11 +152,12 @@ const ArticleCard = React.memo(({
     onCreateBodyArticle: (item: ApproverItem) => void;
     onProceedFGArticle: (item: ApproverItem) => void;
 }) => {
-    // Normalize majorCategory: convert full-form names (e.g. "TEES HALF SLEEVE") to short codes (e.g. "M_TEES_HS")
-    const effectiveMajCat = useMemo(
-        () => normalizeMajorCategory(item.majorCategory || '', item.division),
-        [item.majorCategory, item.division]
-    );
+    // Normalize majorCategory: use local edit when available, otherwise fall back to item prop
+    const effectiveMajCat = useMemo(() => {
+        const raw = (localValues['majorCategory'] !== undefined ? localValues['majorCategory'] : item.majorCategory) || '';
+        return normalizeMajorCategory(raw, item.division);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [localValues['majorCategory'], item.majorCategory, item.division]);
 
     // Compute attributes per-card from this article's own majorCategory
     const { visibleAttrs, mandatoryKeys } = useMemo(() => {
@@ -324,6 +326,10 @@ const ArticleCard = React.memo(({
                 updates['mrp'] = String(calcMrpFromRate(rate));
             }
         }
+        if (field === 'majorCategory' && value) {
+            const newMcCode = getMcCodeByMajorCategory(value);
+            if (newMcCode) updates['mcCode'] = newMcCode;
+        }
         setLocalValues(prev => ({ ...prev, ...updates }));
         setEditingField(null);
         onSave({ ...item, ...updates } as ApproverItem);
@@ -418,7 +424,7 @@ const ArticleCard = React.memo(({
                     {/* 6 horizontal info fields — click to edit */}
                     <div style={{ display: 'flex', gap: 0, borderTop: '1px solid #f0f0f0' }}>
                         {([
-                            { label: 'MAJOR CATEGORY',        field: 'majorCategory',              bold: true,  color: '#2f54eb',  editable: false },
+                            { label: 'MAJOR CATEGORY',        field: 'majorCategory',              bold: true,  color: '#2f54eb',  editable: true },
                             { label: 'ARTICLE NUMBER',        field: 'articleNumber',               bold: true,  color: item.sapArticleId ? '#389e0d' : '#1d39c4', editable: !item.sapArticleId },
                             { label: 'VENDOR CODE',           field: 'vendorCode',                  bold: false, color: '#1a1a1a', editable: true },
                             { label: 'ARTICLE DESC',          field: 'articleDescription',          bold: false, color: '#595959', editable: true },
@@ -447,7 +453,23 @@ const ArticleCard = React.memo(({
                                     <div style={{ fontSize: 9, color: '#8c8c8c', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2, fontWeight: 600 }}>
                                         {label}{field === 'referenceArticleDescription' && <span style={{ color: '#ff4d4f', marginLeft: 2 }}>*</span>}
                                     </div>
-                                    {isEditingThis ? (
+                                    {isEditingThis && field === 'majorCategory' ? (
+                                        <Select
+                                            autoFocus
+                                            size="small"
+                                            showSearch
+                                            defaultOpen
+                                            defaultValue={displayVal || undefined}
+                                            style={{ width: '100%', fontSize: 12 }}
+                                            optionFilterProp="children"
+                                            onChange={(val) => handleSave(field, val || null)}
+                                            onBlur={() => setEditingField(null)}
+                                        >
+                                            {getMajorCategoriesByDivision(item.division || '').map(cat => (
+                                                <Option key={cat} value={cat}>{cat}</Option>
+                                            ))}
+                                        </Select>
+                                    ) : isEditingThis ? (
                                         <Input
                                             autoFocus
                                             size="small"
