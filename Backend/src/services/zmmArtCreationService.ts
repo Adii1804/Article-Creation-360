@@ -114,7 +114,8 @@ const FLAT_TO_RFC: Array<{ rfc: string; flat: string }> = [
 // RFC fields that should always be present (even as empty string) per the RFC contract
 const RFC_ALWAYS_INCLUDE = new Set([
     'HSN_CODE', 'SUB_DIV', 'MC_CD', 'VENDOR', 'DSG_NO',
-    'MRP', 'SEASON', 'ARTICLE_DES1',
+    'SEASON', 'ARTICLE_DES1',
+    // MRP is NOT always-include — only sent when a real value exists (null/empty → skip)
 ]);
 
 // ─── Mandatory field validation ───────────────────────────────────────────────
@@ -125,6 +126,7 @@ const MANDATORY: Array<{ flat: string; label: string }> = [
     { flat: 'designNumber',  label: 'Design Number' },
     { flat: 'macroMvgr',     label: 'Macro MVGR' },
     { flat: 'mainMvgr',      label: 'Main MVGR' },
+    { flat: 'mrp',           label: 'MRP' },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -132,6 +134,11 @@ const MANDATORY: Array<{ flat: string; label: string }> = [
 const toStr = (v: unknown): string => {
     if (v === null || v === undefined) return '';
     if (v instanceof Date) return v.toISOString();
+    // Prisma Decimal objects (decimal.js) — convert via toNumber() to get a clean numeric string
+    if (typeof v === 'object' && typeof (v as any).toNumber === 'function') {
+        const n: number = (v as any).toNumber();
+        return isNaN(n) ? '' : String(n);
+    }
     const s = String(v).trim();
     return s === '-' ? '' : s;  // dash = frontend placeholder, send empty to SAP
 };
@@ -232,7 +239,12 @@ export async function syncArticlesToSapViaRfc(
 
     for (const item of items) {
         // ── 1. Mandatory field check ──────────────────────────────────────────
-        const missing = MANDATORY.filter((f) => !toStr(item[f.flat]));
+        const missing = MANDATORY.filter((f) => {
+            const val = toStr(item[f.flat]);
+            // For MRP specifically, also reject zero value
+            if (f.flat === 'mrp') return !val || val === '0';
+            return !val;
+        });
         if (missing.length > 0) {
             results.push({
                 id: item.id,
