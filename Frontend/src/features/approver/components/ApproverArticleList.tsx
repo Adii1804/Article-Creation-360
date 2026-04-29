@@ -152,6 +152,8 @@ const ArticleCard = React.memo(({
     onCreateBodyArticle: (item: ApproverItem) => void;
     onProceedFGArticle: (item: ApproverItem) => void;
 }) => {
+    const [localValues, setLocalValues] = useState<Record<string, string | null>>({});
+
     // Normalize majorCategory: use local edit when available, otherwise fall back to item prop
     const effectiveMajCat = useMemo(() => {
         const raw = (localValues['majorCategory'] !== undefined ? localValues['majorCategory'] : item.majorCategory) || '';
@@ -214,7 +216,6 @@ const ArticleCard = React.memo(({
         setAttrArticleNums(updated);
         onSave({ ...item, attrArticleNums: JSON.stringify(updated) } as any);
     };
-    const [localValues, setLocalValues] = useState<Record<string, string | null>>({});
     const [failedImg, setFailedImg] = useState(false);
     const [refreshedUrl, setRefreshedUrl] = useState<string | null>(null);
 
