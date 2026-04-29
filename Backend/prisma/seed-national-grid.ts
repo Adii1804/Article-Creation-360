@@ -62,7 +62,7 @@ const EXCEL_HEADER_TO_DBFIELD: Record<string, string | null> = {
   'M_EMB_PLACEMENT':      'embPlacement',
   'M_WASH':               'wash',
   'M_MACRO_MVGR':         'macroMvgr',
-  'M_MAIN_MVGR':          null,  // no corresponding DB field — skip
+  'M_MAIN_MVGR':          'impAtrbt2',
 };
 
 const DIVISIONS = ['MENS', 'LADIES', 'KIDS'] as const;

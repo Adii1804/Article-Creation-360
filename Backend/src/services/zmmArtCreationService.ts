@@ -47,7 +47,7 @@ const FLAT_TO_RFC: Array<{ rfc: string; flat: string }> = [
     { rfc: 'PRICE_BAND_CATEGORY',   flat: 'segment' },
 
     // Fabric – macro / main MVGR
-    { rfc: 'M_MAIN_MVGR',           flat: 'mainMvgr' },          // F_FABRIC MAIN MVGR-01
+    { rfc: 'M_MAIN_MVGR',           flat: 'impAtrbt2' },         // IMPORTANT ATTRIBUTE
     { rfc: 'M_MACRO_MVGR',          flat: 'macroMvgr' },
     { rfc: 'M_FAB',                 flat: 'weave' },             // F_WEAVE_01
     { rfc: 'M_FAB2',                flat: 'mFab2' },             // F_WEAVE_02
