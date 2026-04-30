@@ -82,7 +82,8 @@ const allowedOrigins = [
     ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim())
     : []),
   process.env.FRONTEND_URL,
-  'https://ai-fashion-extractor.vercel.app'
+  'https://ai-fashion-extractor.vercel.app',
+  'https://articlecreation.v2retail.net',
 ].filter(Boolean);
 
 app.use(cors({
