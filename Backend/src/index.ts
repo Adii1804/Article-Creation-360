@@ -84,6 +84,7 @@ const allowedOrigins = [
   process.env.FRONTEND_URL,
   'https://ai-fashion-extractor.vercel.app',
   'https://articlecreation.v2retail.net',
+  'https://articlecreation-api.v2retail.net',
 ].filter(Boolean);
 
 app.use(cors({
