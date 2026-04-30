@@ -97,7 +97,7 @@ export const FIELD_TO_360_COL: Record<string, string> = {
     wash:                        'wash',
 
     // Business / derived
-    segment:                     'segment',
+    // segment intentionally excluded — column does not exist in article_360_flat
     ageGroup:                    'age_group',
     articleFashionType:          'article_fashion_type',
     articleDimension:            'article_dimension',
