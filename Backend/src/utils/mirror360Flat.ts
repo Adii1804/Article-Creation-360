@@ -1,5 +1,24 @@
 import { prismaClient as prisma } from './prisma';
 
+// Cache of columns that actually exist in article_360_flat (populated on first use)
+let existingColumns: Set<string> | null = null;
+
+async function getExistingColumns(): Promise<Set<string>> {
+    if (existingColumns) return existingColumns;
+    try {
+        const rows = await prisma.$queryRawUnsafe<{ column_name: string }[]>(`
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = '360article'
+              AND table_name   = 'article_360_flat'
+        `);
+        existingColumns = new Set(rows.map(r => r.column_name));
+    } catch {
+        existingColumns = new Set(); // fallback: skip all mirror writes
+    }
+    return existingColumns;
+}
+
 /** Maps camelCase approver/extraction fields to 360article.article_360_flat columns */
 export const FIELD_TO_360_COL: Record<string, string> = {
     // Identity / header
@@ -158,11 +177,12 @@ export async function upsert360ArticleFlatRow(
     flatId: string,
     row: Record<string, unknown>
 ): Promise<void> {
+    const realCols = await getExistingColumns();
     const cols: string[] = ['"flat_id"'];
     const vals: unknown[] = [flatId];
 
     for (const [camel, col] of Object.entries(FULL_FIELD_MAP)) {
-        if (camel in row) {
+        if (camel in row && realCols.has(col)) {
             cols.push(`"${col}"`);
             vals.push(row[camel] ?? null);
         }
@@ -200,12 +220,13 @@ export async function mirror360FlatUpdate(
     flatId: string,
     changes: Record<string, unknown>
 ): Promise<void> {
+    const realCols = await getExistingColumns();
     const sets: string[] = [];
     const values: unknown[] = [];
 
     for (const [camel, value] of Object.entries(changes)) {
         const col = FIELD_TO_360_COL[camel];
-        if (!col) continue;
+        if (!col || !realCols.has(col)) continue;
         values.push(value ?? null);
         sets.push(`"${col}" = $${values.length}`);
     }
