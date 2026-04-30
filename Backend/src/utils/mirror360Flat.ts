@@ -178,11 +178,13 @@ export async function upsert360ArticleFlatRow(
     row: Record<string, unknown>
 ): Promise<void> {
     const realCols = await getExistingColumns();
+    // These are hardcoded in the INSERT so must not appear in the dynamic list
+    const HARDCODED = new Set(['approval_status', 'sap_sync_status', 'created_at', 'updated_at', 'id', 'flat_id']);
     const cols: string[] = ['"flat_id"'];
     const vals: unknown[] = [flatId];
 
     for (const [camel, col] of Object.entries(FULL_FIELD_MAP)) {
-        if (camel in row && realCols.has(col)) {
+        if (camel in row && realCols.has(col) && !HARDCODED.has(col)) {
             cols.push(`"${col}"`);
             vals.push(row[camel] ?? null);
         }
